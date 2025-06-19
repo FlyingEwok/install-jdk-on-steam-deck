@@ -69,6 +69,54 @@ get_installed_versions() {
     fi
 }
 
+# Check if the default Java version needs to be updated
+check_if_default_needs_update() {
+    local versions_to_remove=("$@")
+    
+    # Get current default JAVA_HOME
+    if [[ -f ~/.profile ]]; then
+        current_java_home=$(grep "^export JAVA_HOME=" ~/.profile | head -1 | sed 's/export JAVA_HOME=\$\(.*\)/\1/')
+        
+        # Check if any of the versions being removed is currently the default
+        for version in "${versions_to_remove[@]}"; do
+            case "$version" in
+                "JDK 8")
+                    if [[ "$current_java_home" == "JAVA_8_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+                "JDK 16")
+                    if [[ "$current_java_home" == "JAVA_16_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+                "JDK 17")
+                    if [[ "$current_java_home" == "JAVA_17_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+                "JDK 21")
+                    if [[ "$current_java_home" == "JAVA_21_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+                "JDK 23")
+                    if [[ "$current_java_home" == "JAVA_23_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+                "JDK 24")
+                    if [[ "$current_java_home" == "JAVA_24_HOME" ]]; then
+                        return 0  # Default needs update
+                    fi
+                    ;;
+            esac
+        done
+    fi
+    
+    return 1  # Default doesn't need update
+}
+
 # Ask user which Java version they want as default (same logic as install script)
 ask_for_default_java() {
     # Get list of all installed Java versions
@@ -143,62 +191,17 @@ ask_for_default_java() {
         log_info "Set ${selected_version} as the default Java version (only remaining version)"
     fi
 }
-clean_profile_entries() {
-    local versions_to_remove=("$@")
-    
-    if [[ -f ~/.profile ]]; then
-        log_info "Cleaning up .profile entries..."
-        
-        # Create a pattern for the versions to remove
-        local remove_pattern=""
-        for version in "${versions_to_remove[@]}"; do
-            case "$version" in
-                "JDK 8")
-                    remove_pattern="${remove_pattern}JAVA_8_HOME\|"
-                    ;;
-                "JDK 16")
-                    remove_pattern="${remove_pattern}JAVA_16_HOME\|"
-                    ;;
-                "JDK 17")
-                    remove_pattern="${remove_pattern}JAVA_17_HOME\|"
-                    ;;
-                "JDK 21")
-                    remove_pattern="${remove_pattern}JAVA_21_HOME\|"
-                    ;;
-                "JDK 23")
-                    remove_pattern="${remove_pattern}JAVA_23_HOME\|"
-                    ;;
-                "JDK 24")
-                    remove_pattern="${remove_pattern}JAVA_24_HOME\|"
-                    ;;
-            esac
-        done
-        
-        # Remove the trailing \|
-        remove_pattern="${remove_pattern%\\|}"
-        
-        if [[ -n "$remove_pattern" ]]; then
-            # Remove specific version entries and their PATH entries
-            grep -v -E "export ${remove_pattern}|export PATH.*$(echo "$remove_pattern" | sed 's/JAVA_/jdk/g' | sed 's/_HOME//g')" ~/.profile > ~/.profile.tmp
-            mv ~/.profile.tmp ~/.profile
-            
-            # If removing all versions, also clean up JAVA_HOME and section headers
-            if [[ ${#versions_to_remove[@]} -eq ${#installed_versions[@]} ]]; then
-                grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|export JAVA_HOME=|# To change the default Java version" ~/.profile > ~/.profile.tmp
-                mv ~/.profile.tmp ~/.profile
-                
-                # Remove excessive blank lines
-                awk 'BEGIN{blank=0} /^$/{blank++; if(blank<=2) print; next} {blank=0; print}' ~/.profile > ~/.profile.tmp
-                mv ~/.profile.tmp ~/.profile
-            fi
-        fi
-        
-        log_info "Cleaned up .profile entries"
-    fi
-}
 
 # Update .profile to reflect remaining installations
 update_profile_after_removal() {
+    local versions_removed=("$@")
+    
+    # Check if default needs updating BEFORE we clean the profile
+    local default_needs_update=false
+    if check_if_default_needs_update "${versions_removed[@]}"; then
+        default_needs_update=true
+    fi
+    
     # Re-scan for remaining installations
     get_installed_versions
     
@@ -274,8 +277,30 @@ update_profile_after_removal() {
         # Clean up temporary file
         rm -f ~/.profile.backup.tmp
         
-        # Ask user to choose default Java version (same as install script)
-        ask_for_default_java
+        # Only ask for default selection if the removed version was the current default
+        if [[ "$default_needs_update" == true ]]; then
+            log_info "The default Java version was removed. Please select a new default."
+            ask_for_default_java
+        else
+            # Set the latest remaining version as default (no prompt needed)
+            if [[ ${#installed_versions[@]} -gt 0 ]]; then
+                # Sort versions numerically and get the latest
+                IFS=$'\n' sorted_versions=($(printf '%s\n' "${installed_versions[@]}" | sed 's/JDK //' | sort -n | sed 's/^/JDK /'))
+                unset IFS
+                latest_version="${sorted_versions[-1]}"
+                
+                # Find the corresponding version_home
+                for i in "${!installed_versions[@]}"; do
+                    if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+                        latest_home="${version_homes[i]}"
+                        break
+                    fi
+                done
+                
+                echo "export JAVA_HOME=\$${latest_home}" >> ~/.profile
+                log_info "Preserved existing default (non-removed version remains active)"
+            fi
+        fi
         
         log_info "Updated ~/.profile with remaining JDK installations"
         
@@ -377,7 +402,7 @@ remove_jdk_versions() {
     done
     
     # Update .profile
-    update_profile_after_removal
+    update_profile_after_removal "${versions_to_remove[@]}"
     
     # Check if installation directory is empty and remove it
     if [[ -d "${INSTALLATION_DIR}" ]]; then
