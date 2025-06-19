@@ -44,7 +44,7 @@ to the one you need.
 * **JDK 16**: OpenJDK from java.net
 * **JDK 17**: OpenJDK from java.net
 * **JDK 21**: Oracle JDK (latest)
-* **JDK 23**: Oracle JDK (latest) 
+* **JDK 23**: OpenJDK from java.net
 * **JDK 24**: Oracle JDK (latest)
 
 **Version Detection**: The script intelligently detects if a specific JDK version is already installed and skips reinstallation, while allowing you to install other versions side-by-side.
@@ -83,7 +83,7 @@ git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=21 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
 
-To install **jdk-23** (Oracle):
+To install **jdk-23** (OpenJDK):
 ```bash
 git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=23 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
