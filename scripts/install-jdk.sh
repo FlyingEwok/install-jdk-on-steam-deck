@@ -163,11 +163,19 @@ install_jdk() {
     wget -O "${JDK_CHECKSUM_FILE_NAME}" "${JDK_CHECKSUM_URL}" --show-progress || \
         { log_error "Couldn't download the jdk checksum release, exiting..."; cleanup; exit 1; }
 
-    # append the file so the checksum file points to the file we want to check
-    echo "  ${JDK_FILE_NAME}" >> "${JDK_CHECKSUM_FILE_NAME}"
-
-    sha256sum -c "${JDK_CHECKSUM_FILE_NAME}" || \
-        { log_error "Downloaded jdk doesn't match the checksum, don't trust this url!!!\n${JDK_URL}"; cleanup; exit 1; }
+    # Handle different checksum file formats
+    if [[ "$JDK_VERSION" == "8" ]]; then
+        # Eclipse Temurin: Extract just the hash and create proper checksum file
+        checksum_hash=$(head -1 "${JDK_CHECKSUM_FILE_NAME}" | awk '{print $1}')
+        echo "${checksum_hash}  ${JDK_FILE_NAME}" > "${JDK_CHECKSUM_FILE_NAME}"
+        sha256sum -c "${JDK_CHECKSUM_FILE_NAME}" || \
+            { log_error "Downloaded jdk doesn't match the checksum, don't trust this url!!!\n${JDK_URL}"; cleanup; exit 1; }
+    else
+        # Oracle checksum files contain only the hash, need to append filename
+        echo "  ${JDK_FILE_NAME}" >> "${JDK_CHECKSUM_FILE_NAME}"
+        sha256sum -c "${JDK_CHECKSUM_FILE_NAME}" || \
+            { log_error "Downloaded jdk doesn't match the checksum, don't trust this url!!!\n${JDK_URL}"; cleanup; exit 1; }
+    fi
 
     tar xvf "${JDK_FILE_NAME}" || { log_error "Couldn't decompress the jdk file, exiting..."; cleanup; exit 1; }
 
