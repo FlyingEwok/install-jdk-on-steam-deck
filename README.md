@@ -41,6 +41,7 @@ to the one you need.
 
 **Supported JDK Versions:**
 * **JDK 8**: Eclipse Temurin (no authentication required)
+* **JDK 16**: OpenJDK from java.net
 * **JDK 17**: OpenJDK from java.net
 * **JDK 21**: Oracle JDK (latest)
 * **JDK 23**: Oracle JDK (latest) 
@@ -62,6 +63,12 @@ To install **jdk-8** (Eclipse Temurin):
 ```bash
 git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=8 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
+```
+
+To install **jdk-16** (OpenJDK):
+```bash
+git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
+JDK_VERSION=16 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
 
 To install **jdk-17** (OpenJDK):
@@ -91,6 +98,7 @@ git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 **Using specific versions in your projects:**
 After installation, you can reference specific versions using:
 - `$JAVA_8_HOME/bin/java` for JDK 8
+- `$JAVA_16_HOME/bin/java` for JDK 16
 - `$JAVA_17_HOME/bin/java` for JDK 17  
 - `$JAVA_21_HOME/bin/java` for JDK 21
 - `$JAVA_23_HOME/bin/java` for JDK 23
@@ -104,11 +112,12 @@ After installing multiple JDK versions, the script will prompt you to choose whi
 ```
 Multiple Java versions detected. Please choose which one should be the default:
   1) JDK 8
-  2) JDK 17
-  3) JDK 21
-  4) JDK 24 (recommended - latest version)
+  2) JDK 16
+  3) JDK 17
+  4) JDK 21
+  5) JDK 24 (recommended - latest version)
 
-Enter your choice (1-4) [default: 4 for JDK 24]: 
+Enter your choice (1-5) [default: 5 for JDK 24]: 
 ```
 
 - **Press Enter**: Accept the recommended latest version (JDK 24 in this example)
@@ -143,6 +152,7 @@ rm -rf ~/.local/jdk
 ```bash
 # Edit ~/.profile and remove the JDK-related lines:
 # export JAVA_8_HOME=...
+# export JAVA_16_HOME=...
 # export JAVA_17_HOME=...  
 # export JAVA_HOME=...
 # export PATH=$PATH:...jdk.../bin

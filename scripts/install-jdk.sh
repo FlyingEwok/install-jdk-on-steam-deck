@@ -11,6 +11,12 @@ JDK_8_EXTRACTED_DIR=to-be-known-later
 JDK_8_FILE_NAME=jdk-8_linux-x64_bin.tar.gz
 JDK_8_CHECKSUM_FILE_NAME=jdk-8_linux-x64_bin.tar.gz.sha256
 
+JDK_16_URL=https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz
+JDK_16_CHECKSUM_URL=https://download.java.net/java/GA/jdk16.0.2/d4a915d82b4c4fbb9bde534da945d746/7/GPL/openjdk-16.0.2_linux-x64_bin.tar.gz.sha256
+JDK_16_EXTRACTED_DIR=to-be-known-later
+JDK_16_FILE_NAME=jdk-16_linux-x64_bin.tar.gz
+JDK_16_CHECKSUM_FILE_NAME=jdk-16_linux-x64_bin.tar.gz.sha256
+
 JDK_17_URL=https://download.java.net/java/GA/jdk17.0.1/2a2082e5a09d4267845be086888add4f/12/GPL/openjdk-17.0.1_linux-x64_bin.tar.gz
 JDK_17_CHECKSUM_URL=https://download.java.net/java/GA/jdk17.0.1/2a2082e5a09d4267845be086888add4f/12/GPL/openjdk-17.0.1_linux-x64_bin.tar.gz.sha256
 JDK_17_EXTRACTED_DIR=to-be-known-later
@@ -98,6 +104,14 @@ select_jdk_version() {
             JDK_FILE_NAME="${JDK_8_FILE_NAME}"
             JDK_CHECKSUM_FILE_NAME="${JDK_8_CHECKSUM_FILE_NAME}"
             ;;
+        16)
+            log_info "You've selected version jdk-16"
+            JDK_URL="${JDK_16_URL}"
+            JDK_CHECKSUM_URL="${JDK_16_CHECKSUM_URL}"
+            JDK_EXTRACTED_DIR="${JDK_16_EXTRACTED_DIR}"
+            JDK_FILE_NAME="${JDK_16_FILE_NAME}"
+            JDK_CHECKSUM_FILE_NAME="${JDK_16_CHECKSUM_FILE_NAME}"
+            ;;
         17)
             log_info "You've selected version jdk-17"
             JDK_URL="${JDK_17_URL}"
@@ -131,7 +145,7 @@ select_jdk_version() {
             JDK_CHECKSUM_FILE_NAME="${JDK_24_CHECKSUM_FILE_NAME}"
             ;;
         *)
-            log_error "The version you've selected isn't supported, either set JDK_VERSION=8, JDK_VERSION=17, JDK_VERSION=21, JDK_VERSION=23, or JDK_VERSION=24"
+            log_error "The version you've selected isn't supported, either set JDK_VERSION=8, JDK_VERSION=16, JDK_VERSION=17, JDK_VERSION=21, JDK_VERSION=23, or JDK_VERSION=24"
             cleanup
             exit 1
             ;;
@@ -153,7 +167,7 @@ exit_if_jdk_version_is_installed() {
                             exit 0
                         fi
                         ;;
-                    17|21|23|24)
+                    16|17|21|23|24)
                         if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}\|java version \"${JDK_VERSION}"; then
                             log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
                             exit 0
@@ -217,6 +231,9 @@ ask_for_default_java() {
                 if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
                     installed_versions+=("8")
                     version_homes+=("JAVA_8_HOME")
+                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
+                    installed_versions+=("16")
+                    version_homes+=("JAVA_16_HOME")
                 elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
                     installed_versions+=("17")
                     version_homes+=("JAVA_17_HOME")
