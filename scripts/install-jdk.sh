@@ -2,7 +2,7 @@
 
 if [[ -z "$JDK_VERSION" ]];
 then
-    JDK_VERSION=23
+    JDK_VERSION=24
 fi
 
 JDK_8_URL=https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u422-b05/OpenJDK8U-jdk_x64_linux_hotspot_8u422b05.tar.gz
@@ -41,7 +41,7 @@ JDK_EXTRACTED_DIR=""
 JDK_FILE_NAME=""
 JDK_CHECKSUM_FILE_NAME=""
 
-INSTALLATION_DIR="${HOME}/.local/jdk"
+INSTALLATION_DIR="${HOME}/.local/jdk/jdk-${JDK_VERSION}"
 
 CURRENT_DIR=$(pwd)
 
@@ -121,10 +121,31 @@ select_jdk_version() {
     esac
 }
 
-# if java can't be found (! type java), it won't print anything
-# if java can be found (type java), then will print the message and exit
-exit_if_jdk_is_installed() {
-    ! type java || { log_warning "JDK is already installed, the installer will skip the installation"; exit 0; }
+# Check if the specific JDK version is already installed in our installation directory
+exit_if_jdk_version_is_installed() {
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        # Look for any JDK directory that might contain the version we're trying to install
+        for jdk_dir in "${INSTALLATION_DIR}"/*/; do
+            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable
+                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+                case $JDK_VERSION in
+                    8)
+                        if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
+                            exit 0
+                        fi
+                        ;;
+                    17|21|23|24)
+                        if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}"; then
+                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
+                            exit 0
+                        fi
+                        ;;
+                esac
+            fi
+        done
+    fi
 }
 
 # download the jdk tar release from oracle and it's checksum
@@ -160,20 +181,32 @@ install_jdk() {
 # This will set JAVA_HOME and will also append the java/bin folder to PATH
 set_variables_for_the_installation() {
     touch ~/.profile
-    if ! grep "JAVA_HOME" ~/.bashrc ~/.profile
-    then
-        echo "export JAVA_HOME=${INSTALLATION_DIR}" >> ~/.profile
-        echo "export PATH=\$PATH:${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin" >>  ~/.profile
-        echo "[[ -f ~/.profile ]] && source ~/.profile" >> ~/.bashrc
+    
+    # Check if this specific JDK version is already in the profile
+    if ! grep "JAVA_HOME.*jdk-${JDK_VERSION}" ~/.profile > /dev/null 2>&1; then
+        echo "" >> ~/.profile
+        echo "# JDK ${JDK_VERSION} installation" >> ~/.profile
+        echo "export JAVA_${JDK_VERSION}_HOME=${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}" >> ~/.profile
+        echo "export PATH=\$PATH:${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin" >> ~/.profile
+        
+        # Set as default JAVA_HOME if it's not already set
+        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+            echo "export JAVA_HOME=\$JAVA_${JDK_VERSION}_HOME" >> ~/.profile
+        fi
+        
+        # Ensure .profile is sourced in .bashrc
+        if ! grep "source ~/.profile" ~/.bashrc > /dev/null 2>&1 && ! grep "\[\[ -f ~/.profile \]\] && source ~/.profile" ~/.bashrc > /dev/null 2>&1; then
+            echo "[[ -f ~/.profile ]] && source ~/.profile" >> ~/.bashrc
+        fi
     fi
 }
 
 #### MAIN ####
 
-log_info "Checking if you already have java installed"
-exit_if_jdk_is_installed
+log_info "Checking if JDK ${JDK_VERSION} is already installed"
+exit_if_jdk_version_is_installed
 
-log_info "Validating jdk version selected, if none set jdk-17 will be used"
+log_info "Validating jdk version selected, if none set jdk-24 will be used"
 select_jdk_version
 
 log_info "Installing jdk-$JDK_VERSION on your local folder '.local/'..."
@@ -194,6 +227,8 @@ then
 
     how_to_use="
     \tTo start using this java installation, open a new terminal or start a new shell by running 'bash'
+    \n\tJDK ${JDK_VERSION} is now available at: ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java
+    \n\tYou can also use JAVA_${JDK_VERSION}_HOME environment variable to reference this specific version
     \n\tOriginally you could run 'source ~/.bashrc', but since some time there's an issue with it
     \tor more info check the issue: https://github.com/BlackCorsair/install-jdk-on-steam-deck/issues/5"
     log_warning "${how_to_use}"
