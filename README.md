@@ -54,8 +54,35 @@ to the one you need.
 Usage
 =====
 
+The script supports both **interactive mode** and **environment variable mode** for version selection.
+
+**Interactive Mode (Recommended for new users):**
+Simply run the script without specifying a version, and it will present an interactive menu:
+
+```bash
+git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
+./install-jdk-on-steam-deck/scripts/install-jdk.sh
+```
+
+The script will show:
+```
+=== JDK Installer for Steam Deck ===
+
+Please select which JDK version you would like to install:
+
+  1) JDK 8 (Eclipse Temurin)
+  2) JDK 16 (OpenJDK)
+  3) JDK 17 (OpenJDK)
+  4) JDK 21 (Oracle)
+  5) JDK 23 (OpenJDK)
+  6) JDK 24 (Oracle - recommended)
+
+Enter your choice (1-6) [default: 6 for JDK 24]:
+```
+
+**Environment Variable Mode (For automation/scripts):**
 You can choose which version to install by setting the variable `JDK_VERSION` before executing the script, you can
-even do it on the same command! If you don't select any version, `jdk-24` will be installed by default.
+even do it on the same command! This method is perfect for automated installations and CI/CD pipelines.
 
 **Install multiple versions for different projects:**
 
@@ -89,11 +116,15 @@ git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=23 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
 
-To install **jdk-24** (Oracle - default):
+To install **jdk-24** (Oracle):
 ```bash
 git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
-./install-jdk-on-steam-deck/scripts/install-jdk.sh
+JDK_VERSION=24 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
+
+**Which Mode Should You Use?**
+- **Interactive Mode**: Best for most users, especially first-time installations. Provides clear options and guidance.
+- **Environment Variable Mode**: Perfect for automation, scripts, CI/CD pipelines, or when you know exactly which version you need.
 
 **Using specific versions in your projects:**
 After installation, you can reference specific versions using:

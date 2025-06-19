@@ -1,8 +1,82 @@
 #!/bin/bash
 
-if [[ -z "$JDK_VERSION" ]];
-then
-    JDK_VERSION=24
+# Interactive JDK version selection if not specified via environment variable
+select_jdk_version_interactive() {
+    echo ""
+    log_info "=== JDK Installer for Steam Deck ==="
+    echo ""
+    log_info "Please select which JDK version you would like to install:"
+    echo ""
+    echo "  1) JDK 8 (Eclipse Temurin)"
+    echo "  2) JDK 16 (OpenJDK)"
+    echo "  3) JDK 17 (OpenJDK)"
+    echo "  4) JDK 21 (Oracle)"
+    echo "  5) JDK 23 (OpenJDK)"
+    echo "  6) JDK 24 (Oracle - recommended)"
+    echo ""
+    
+    while true; do
+        read -p "Enter your choice (1-6) [default: 6 for JDK 24]: " choice
+        
+        # If user just presses Enter, use JDK 24 (default)
+        if [[ -z "$choice" ]]; then
+            choice=6
+        fi
+        
+        case $choice in
+            1)
+                JDK_VERSION=8
+                log_info "Selected JDK 8 (Eclipse Temurin)"
+                break
+                ;;
+            2)
+                JDK_VERSION=16
+                log_info "Selected JDK 16 (OpenJDK)"
+                break
+                ;;
+            3)
+                JDK_VERSION=17
+                log_info "Selected JDK 17 (OpenJDK)"
+                break
+                ;;
+            4)
+                JDK_VERSION=21
+                log_info "Selected JDK 21 (Oracle)"
+                break
+                ;;
+            5)
+                JDK_VERSION=23
+                log_info "Selected JDK 23 (OpenJDK)"
+                break
+                ;;
+            6)
+                JDK_VERSION=24
+                log_info "Selected JDK 24 (Oracle - latest version)"
+                break
+                ;;
+            *)
+                echo "Invalid choice. Please enter a number between 1 and 6, or press Enter for default (JDK 24)."
+                ;;
+        esac
+    done
+}
+
+# Determine JDK version - interactive prompt if not set via environment variable
+if [[ -z "$JDK_VERSION" ]]; then
+    select_jdk_version_interactive
+else
+    log_info "Using JDK version ${JDK_VERSION} specified via environment variable"
+    # Validate the provided version
+    case $JDK_VERSION in
+        8|16|17|21|23|24)
+            # Valid version, continue
+            ;;
+        *)
+            log_error "Invalid JDK_VERSION specified: ${JDK_VERSION}"
+            log_error "Supported versions are: 8, 16, 17, 21, 23, 24"
+            exit 1
+            ;;
+    esac
 fi
 
 JDK_8_URL=https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u422-b05/OpenJDK8U-jdk_x64_linux_hotspot_8u422b05.tar.gz
@@ -432,7 +506,7 @@ set_variables_for_the_installation() {
 
 #### MAIN ####
 
-log_info "Validating jdk version selected, if none set jdk-24 will be used"
+log_info "Setting up JDK ${JDK_VERSION} installation parameters"
 select_jdk_version
 
 log_info "Cleaning up any previous JDK entries in .profile"
