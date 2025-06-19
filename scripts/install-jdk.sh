@@ -320,26 +320,84 @@ ask_for_default_java() {
 }
 # This will set JAVA_HOME and will also append the java/bin folder to PATH
 set_variables_for_the_installation() {
-    touch ~/.profile
-    
-    # Check if this specific JDK version is already in the profile
-    if ! grep "JAVA_${JDK_VERSION}_HOME" ~/.profile > /dev/null 2>&1; then
-        echo "" >> ~/.profile
-        echo "# JDK ${JDK_VERSION} installation" >> ~/.profile
-        echo "export JAVA_${JDK_VERSION}_HOME=${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}" >> ~/.profile
-        echo "export PATH=\$PATH:${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin" >> ~/.profile
-        
-        # Ensure .profile is sourced in .bashrc
-        if ! grep "source ~/.profile" ~/.bashrc > /dev/null 2>&1 && ! grep "\[\[ -f ~/.profile \]\] && source ~/.profile" ~/.bashrc > /dev/null 2>&1; then
-            echo "[[ -f ~/.profile ]] && source ~/.profile" >> ~/.bashrc
-        fi
-        
-        echo "" >> ~/.profile
-        echo "# To change the default Java version, update the JAVA_HOME line or re-run this installer" >> ~/.profile
+    # Backup original .profile if it exists and contains non-JDK content
+    if [[ -f ~/.profile ]]; then
+        # Extract non-JDK lines to preserve user's custom settings
+        grep -v "# JDK.*installation\|export JAVA_.*_HOME\|export JAVA_HOME\|export PATH.*jdk.*bin\|# To change the default Java version" ~/.profile > ~/.profile.backup.tmp 2>/dev/null || true
+    else
+        touch ~/.profile.backup.tmp
     fi
+    
+    # Start fresh .profile with preserved content
+    cp ~/.profile.backup.tmp ~/.profile
+    
+    # Add header for JDK section
+    echo "" >> ~/.profile
+    echo "# ========================================" >> ~/.profile
+    echo "# JDK Installations managed by install-jdk-on-steam-deck" >> ~/.profile
+    echo "# ========================================" >> ~/.profile
+    
+    # Scan for all installed JDK versions and add them to .profile
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        for jdk_dir in "${INSTALLATION_DIR}"/*/; do
+            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable
+                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+                jdk_path="${jdk_dir%/}"  # Remove trailing slash
+                jdk_name=$(basename "$jdk_path")
+                
+                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 8 installation" >> ~/.profile
+                    echo "export JAVA_8_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 16 installation" >> ~/.profile
+                    echo "export JAVA_16_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 17 installation" >> ~/.profile
+                    echo "export JAVA_17_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 21 installation" >> ~/.profile
+                    echo "export JAVA_21_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 23 installation" >> ~/.profile
+                    echo "export JAVA_23_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
+                    echo "" >> ~/.profile
+                    echo "# JDK 24 installation" >> ~/.profile
+                    echo "export JAVA_24_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                fi
+            fi
+        done
+    fi
+    
+    # Add footer and instructions
+    echo "" >> ~/.profile
+    echo "# To change the default Java version, update the JAVA_HOME line below or re-run this installer" >> ~/.profile
+    echo "# ========================================" >> ~/.profile
+    
+    # Ensure .profile is sourced in .bashrc
+    if ! grep "source ~/.profile" ~/.bashrc > /dev/null 2>&1 && ! grep "\[\[ -f ~/.profile \]\] && source ~/.profile" ~/.bashrc > /dev/null 2>&1; then
+        echo "[[ -f ~/.profile ]] && source ~/.profile" >> ~/.bashrc
+    fi
+    
+    # Clean up temporary file
+    rm -f ~/.profile.backup.tmp
     
     # Ask user to choose default Java version
     ask_for_default_java
+    
+    log_info "Updated ~/.profile with all installed JDK versions"
 }
 
 #### MAIN ####
