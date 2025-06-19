@@ -41,7 +41,7 @@ JDK_EXTRACTED_DIR=""
 JDK_FILE_NAME=""
 JDK_CHECKSUM_FILE_NAME=""
 
-INSTALLATION_DIR="${HOME}/.local/jdk/jdk-${JDK_VERSION}"
+INSTALLATION_DIR="${HOME}/.local/jdk"
 
 CURRENT_DIR=$(pwd)
 
@@ -137,7 +137,7 @@ exit_if_jdk_version_is_installed() {
                         fi
                         ;;
                     17|21|23|24)
-                        if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}"; then
+                        if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}\|java version \"${JDK_VERSION}"; then
                             log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
                             exit 0
                         fi

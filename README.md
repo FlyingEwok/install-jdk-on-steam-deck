@@ -18,9 +18,9 @@ the OS by using [flatpak][2]), you have to modify things in you *home* directory
 and break the system.
 
 Taking this into account, the script located in the `scripts` directory of this repository will:
-* Download the official JDK compressed file into your **home** directory, more specifically into `~/.local/jdk/jdk-{VERSION}`
+* Download the official JDK compressed file into your **home** directory, more specifically into `~/.local/jdk`
 * Exec a checksum of the file using the official sha256 checksum
-* Extract the file into the version-specific directory (e.g., `~/.local/jdk/jdk-17/`, `~/.local/jdk/jdk-21/`, etc.)
+* Extract the file into the JDK's own version-specific directory (e.g., `~/.local/jdk/jdk-17.0.1/`, `~/.local/jdk/jdk-21.0.5/`, `~/.local/jdk/jdk-24.0.1/`, etc.)
 * Add environment variables to your `~/.profile` and source it in your bashrc for each installed version:
     * `JAVA_{VERSION}_HOME`: Version-specific home (e.g., `JAVA_17_HOME`, `JAVA_21_HOME`)
     * `JAVA_HOME`: Points to the first installed version (default)
@@ -101,13 +101,17 @@ How to uninstall it
 
 **To remove a specific JDK version:**
 ```bash
-# Remove JDK 17 installation
-rm -rf ~/.local/jdk/jdk-17
+# Remove JDK 17 installation (replace with actual directory name)
+rm -rf ~/.local/jdk/jdk-17.0.1
 
-# Remove JDK 21 installation  
-rm -rf ~/.local/jdk/jdk-21
+# Remove JDK 21 installation (replace with actual directory name)
+rm -rf ~/.local/jdk/jdk-21.0.5
 
-# etc...
+# Remove JDK 24 installation (replace with actual directory name)
+rm -rf ~/.local/jdk/jdk-24.0.1
+
+# Or find the exact directory names first:
+ls ~/.local/jdk/
 ```
 
 **To remove all JDK installations:**
