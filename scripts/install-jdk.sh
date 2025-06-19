@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Logging utils using colors
+
+RED='\033[1;31m'
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}${1}${NC}"
+}
+
+log_warning() {
+    echo -e "${BLUE}${1}${NC}"
+}
+
+log_error() {
+    echo -e "${RED}${1}${NC}"
+}
+
 # Interactive JDK version selection if not specified via environment variable
 select_jdk_version_interactive() {
     echo ""
@@ -124,25 +143,6 @@ JDK_CHECKSUM_FILE_NAME=""
 INSTALLATION_DIR="${HOME}/.local/jdk"
 
 CURRENT_DIR=$(pwd)
-
-# Logging utils using colors
-
-RED='\033[1;31m'
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color
-
-log_info() {
-    echo -e "${GREEN}${1}${NC}"
-}
-
-log_warning() {
-    echo -e "${BLUE}${1}${NC}"
-}
-
-log_error() {
-    echo -e "${RED}${1}${NC}"
-}
 
 cleanup() {
     # Only clean up the downloaded files, not the entire JDK directory
