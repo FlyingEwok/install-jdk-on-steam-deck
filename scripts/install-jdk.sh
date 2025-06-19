@@ -32,10 +32,11 @@ select_jdk_version_interactive() {
     echo "  4) JDK 21 (Oracle)"
     echo "  5) JDK 23 (OpenJDK)"
     echo "  6) JDK 24 (Oracle - recommended)"
+    echo "  7) Install All JDK Versions (8, 16, 17, 21, 23, 24)"
     echo ""
     
     while true; do
-        read -p "Enter your choice (1-6) [default: 6 for JDK 24]: " choice
+        read -p "Enter your choice (1-7) [default: 6 for JDK 24]: " choice
         
         # If user just presses Enter, use JDK 24 (default)
         if [[ -z "$choice" ]]; then
@@ -73,26 +74,34 @@ select_jdk_version_interactive() {
                 log_info "Selected JDK 24 (Oracle - latest version)"
                 break
                 ;;
+            7)
+                JDK_VERSION="ALL"
+                log_info "Selected to install all JDK versions (8, 16, 17, 21, 23, 24)"
+                break
+                ;;
             *)
-                echo "Invalid choice. Please enter a number between 1 and 6, or press Enter for default (JDK 24)."
+                echo "Invalid choice. Please enter a number between 1 and 7, or press Enter for default (JDK 24)."
                 ;;
         esac
     done
 }
 
 # Determine JDK version - interactive prompt if not set via environment variable
+# Also determine if we're in environment variable mode
+ENV_VAR_MODE=false
 if [[ -z "$JDK_VERSION" ]]; then
     select_jdk_version_interactive
 else
+    ENV_VAR_MODE=true
     log_info "Using JDK version ${JDK_VERSION} specified via environment variable"
     # Validate the provided version
     case $JDK_VERSION in
-        8|16|17|21|23|24)
+        8|16|17|21|23|24|ALL)
             # Valid version, continue
             ;;
         *)
             log_error "Invalid JDK_VERSION specified: ${JDK_VERSION}"
-            log_error "Supported versions are: 8, 16, 17, 21, 23, 24"
+            log_error "Supported versions are: 8, 16, 17, 21, 23, 24, ALL"
             exit 1
             ;;
     esac
@@ -245,8 +254,12 @@ select_jdk_version() {
             JDK_FILE_NAME="${JDK_24_FILE_NAME}"
             JDK_CHECKSUM_FILE_NAME="${JDK_24_CHECKSUM_FILE_NAME}"
             ;;
+        ALL)
+            log_info "You've selected to install all JDK versions"
+            # For "ALL" case, we'll handle installation differently in the main section
+            ;;
         *)
-            log_error "The version you've selected isn't supported, either set JDK_VERSION=8, JDK_VERSION=16, JDK_VERSION=17, JDK_VERSION=21, JDK_VERSION=23, or JDK_VERSION=24"
+            log_error "The version you've selected isn't supported, either set JDK_VERSION=8, JDK_VERSION=16, JDK_VERSION=17, JDK_VERSION=21, JDK_VERSION=23, JDK_VERSION=24, or JDK_VERSION=ALL"
             cleanup
             exit 1
             ;;
@@ -279,6 +292,93 @@ check_if_jdk_version_is_installed() {
         done
     fi
     return 1
+}
+
+# Install a specific JDK version with given parameters
+install_single_jdk() {
+    local version=$1
+    local url=$2
+    local checksum_url=$3
+    local file_name=$4
+    local checksum_file_name=$5
+    
+    log_info "Installing JDK ${version}..."
+    
+    mkdir -p "${INSTALLATION_DIR}" || { log_error "Couldn't create the installation directory, exiting..."; cleanup; exit 1; }
+    cd "${INSTALLATION_DIR}" || { log_error "Couldn't 'cd' into the installation directory, exiting..."; cleanup; exit 1; }
+
+    # Download JDK and checksum
+    wget -O "${file_name}" "${url}" --show-progress || \
+        { log_error "Couldn't download JDK ${version} release, skipping..."; cd "${CURRENT_DIR}"; return 1; }
+
+    wget -O "${checksum_file_name}" "${checksum_url}" --show-progress || \
+        { log_error "Couldn't download JDK ${version} checksum release, skipping..."; rm -f "${file_name}"; cd "${CURRENT_DIR}"; return 1; }
+
+    # Handle different checksum file formats
+    if [[ "$version" == "8" ]]; then
+        # Eclipse Temurin: Extract just the hash and create proper checksum file
+        checksum_hash=$(head -1 "${checksum_file_name}" | awk '{print $1}')
+        echo "${checksum_hash}  ${file_name}" > "${checksum_file_name}"
+        sha256sum -c "${checksum_file_name}" || \
+            { log_error "Downloaded JDK ${version} doesn't match the checksum, skipping..."; rm -f "${file_name}" "${checksum_file_name}"; cd "${CURRENT_DIR}"; return 1; }
+    else
+        # Oracle checksum files contain only the hash, need to append filename
+        echo "  ${file_name}" >> "${checksum_file_name}"
+        sha256sum -c "${checksum_file_name}" || \
+            { log_error "Downloaded JDK ${version} doesn't match the checksum, skipping..."; rm -f "${file_name}" "${checksum_file_name}"; cd "${CURRENT_DIR}"; return 1; }
+    fi
+
+    tar xvf "${file_name}" || { log_error "Couldn't decompress JDK ${version} file, skipping..."; rm -f "${file_name}" "${checksum_file_name}"; cd "${CURRENT_DIR}"; return 1; }
+
+    rm -f "${file_name}" "${checksum_file_name}"
+    
+    log_info "JDK ${version} installed successfully"
+    cd "${CURRENT_DIR}" || exit 1
+    return 0
+}
+
+# Install all JDK versions
+install_all_jdks() {
+    log_info "Installing all JDK versions (8, 16, 17, 21, 23, 24)..."
+    
+    # Check which versions are already installed
+    local versions_to_install=()
+    for version in 8 16 17 21 23 24; do
+        temp_jdk_version=$JDK_VERSION
+        JDK_VERSION=$version
+        if ! check_if_jdk_version_is_installed; then
+            versions_to_install+=($version)
+        else
+            log_info "JDK ${version} is already installed, skipping"
+        fi
+        JDK_VERSION=$temp_jdk_version
+    done
+    
+    # Install missing versions
+    for version in "${versions_to_install[@]}"; do
+        case $version in
+            8)
+                install_single_jdk "8" "${JDK_8_URL}" "${JDK_8_CHECKSUM_URL}" "${JDK_8_FILE_NAME}" "${JDK_8_CHECKSUM_FILE_NAME}"
+                ;;
+            16)
+                install_single_jdk "16" "${JDK_16_URL}" "${JDK_16_CHECKSUM_URL}" "${JDK_16_FILE_NAME}" "${JDK_16_CHECKSUM_FILE_NAME}"
+                ;;
+            17)
+                install_single_jdk "17" "${JDK_17_URL}" "${JDK_17_CHECKSUM_URL}" "${JDK_17_FILE_NAME}" "${JDK_17_CHECKSUM_FILE_NAME}"
+                ;;
+            21)
+                install_single_jdk "21" "${JDK_21_URL}" "${JDK_21_CHECKSUM_URL}" "${JDK_21_FILE_NAME}" "${JDK_21_CHECKSUM_FILE_NAME}"
+                ;;
+            23)
+                install_single_jdk "23" "${JDK_23_URL}" "${JDK_23_CHECKSUM_URL}" "${JDK_23_FILE_NAME}" "${JDK_23_CHECKSUM_FILE_NAME}"
+                ;;
+            24)
+                install_single_jdk "24" "${JDK_24_URL}" "${JDK_24_CHECKSUM_URL}" "${JDK_24_FILE_NAME}" "${JDK_24_CHECKSUM_FILE_NAME}"
+                ;;
+        esac
+    done
+    
+    log_info "All JDK installations completed"
 }
 
 # download the jdk tar release from oracle and it's checksum
@@ -321,6 +421,8 @@ install_jdk() {
 
 # Ask user which Java version they want as default
 ask_for_default_java() {
+    local is_env_var_mode=${1:-false}  # Parameter to indicate if we're in environment variable mode
+    
     # Get list of all installed Java versions
     installed_versions=()
     version_homes=()
@@ -367,7 +469,29 @@ ask_for_default_java() {
         fi
     done
     
-    # If we have multiple versions, ask user to choose default
+    # If environment variable mode, automatically set the latest version
+    if [[ "$is_env_var_mode" == "true" ]]; then
+        # Automatically set latest version as default
+        selected_version="$latest_version"
+        for i in "${!installed_versions[@]}"; do
+            if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+                selected_home="${version_homes[i]}"
+                break
+            fi
+        done
+        
+        # Update JAVA_HOME in profile
+        if grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+            sed -i "s|^export JAVA_HOME=.*|export JAVA_HOME=\$${selected_home}|" ~/.profile
+        else
+            echo "export JAVA_HOME=\$${selected_home}" >> ~/.profile
+        fi
+        
+        log_info "Automatically set JDK ${selected_version} as the default Java version (latest version)"
+        return
+    fi
+    
+    # Interactive mode: ask user to choose default if multiple versions exist
     if [[ ${#installed_versions[@]} -gt 1 ]]; then
         echo ""
         log_info "Multiple Java versions detected. Please choose which one should be the default:"
@@ -422,6 +546,8 @@ ask_for_default_java() {
 }
 # This will set JAVA_HOME and will also append the java/bin folder to PATH
 set_variables_for_the_installation() {
+    local is_env_var_mode=${1:-false}  # Parameter to indicate if we're in environment variable mode
+    
     # Backup original .profile if it exists and contains non-JDK content
     if [[ -f ~/.profile ]]; then
         # Extract non-JDK lines to preserve user's custom settings
@@ -498,8 +624,8 @@ set_variables_for_the_installation() {
     # Clean up temporary file
     rm -f ~/.profile.backup.tmp
     
-    # Ask user to choose default Java version
-    ask_for_default_java
+    # Ask user to choose default Java version (or auto-select if env var mode)
+    ask_for_default_java "$is_env_var_mode"
     
     log_info "Updated ~/.profile with all installed JDK versions"
 }
@@ -512,39 +638,49 @@ select_jdk_version
 log_info "Cleaning up any previous JDK entries in .profile"
 cleanup_profile
 
-log_info "Checking if JDK ${JDK_VERSION} is already installed"
-if check_if_jdk_version_is_installed; then
-    # JDK is already installed, proceed to default selection
-    log_info "Setting environment variables if not already set"
-    set_variables_for_the_installation
+if [[ "$JDK_VERSION" == "ALL" ]]; then
+    # Install all JDK versions
+    log_info "Installing all JDK versions..."
+    install_all_jdks
+    
+    log_info "Setting environment variables for all installed JDKs"
+    set_variables_for_the_installation "$ENV_VAR_MODE"
 else
-    # JDK is not installed, proceed with installation
-    log_info "Installing jdk-$JDK_VERSION on your local folder '.local/'..."
-
-    log_info "Downloading and decompressing jdk${JDK_VERSION} from source..."
-    install_jdk
-    log_info "JDK downloaded and extracted into ${INSTALLATION_DIR}"
-
-    log_info "Setting environment variables if not already set"
-    set_variables_for_the_installation
-
-    log_info "Checking that java is properly installed..."
-    # shellcheck disable=SC1090
-    source ~/.bashrc
-    if "${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java" -version
-    then
-        log_info "Java is succesfully installed!"
-
-        how_to_use="
-        \tTo start using this java installation, open a new terminal or start a new shell by running 'bash'
-        \n\tJDK ${JDK_VERSION} is now available at: ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java
-        \n\tYou can also use JAVA_${JDK_VERSION}_HOME environment variable to reference this specific version
-        \n\tOriginally you could run 'source ~/.bashrc', but since some time there's an issue with it
-        \tor more info check the issue: https://github.com/BlackCorsair/install-jdk-on-steam-deck/issues/5"
-        log_warning "${how_to_use}"
+    # Single JDK version installation
+    log_info "Checking if JDK ${JDK_VERSION} is already installed"
+    if check_if_jdk_version_is_installed; then
+        # JDK is already installed, proceed to default selection
+        log_info "Setting environment variables if not already set"
+        set_variables_for_the_installation "$ENV_VAR_MODE"
     else
-        log_error "Java wasn't installed properly, please check the script :("
-        cleanup
+        # JDK is not installed, proceed with installation
+        log_info "Installing jdk-$JDK_VERSION on your local folder '.local/'..."
+
+        log_info "Downloading and decompressing jdk${JDK_VERSION} from source..."
+        install_jdk
+        log_info "JDK downloaded and extracted into ${INSTALLATION_DIR}"
+
+        log_info "Setting environment variables if not already set"
+        set_variables_for_the_installation "$ENV_VAR_MODE"
+
+        log_info "Checking that java is properly installed..."
+        # shellcheck disable=SC1090
+        source ~/.bashrc
+        if "${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java" -version
+        then
+            log_info "Java is succesfully installed!"
+
+            how_to_use="
+            \tTo start using this java installation, open a new terminal or start a new shell by running 'bash'
+            \n\tJDK ${JDK_VERSION} is now available at: ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java
+            \n\tYou can also use JAVA_${JDK_VERSION}_HOME environment variable to reference this specific version
+            \n\tOriginally you could run 'source ~/.bashrc', but since some time there's an issue with it
+            \tor more info check the issue: https://github.com/BlackCorsair/install-jdk-on-steam-deck/issues/5"
+            log_warning "${how_to_use}"
+        else
+            log_error "Java wasn't installed properly, please check the script :("
+            cleanup
+        fi
     fi
 fi
 

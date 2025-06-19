@@ -26,7 +26,7 @@ Taking this into account, the script located in the `scripts` directory of this 
     * `JAVA_HOME`: Points to your chosen default version (with smart recommendations)
     * `PATH`: Adds each version's `bin` directory so all executables are available
 
-**Multi-Version Support**: You can install multiple JDK versions side-by-side. Each version gets its own directory and environment variables, allowing you to easily switch between Java versions for different projects.
+**Multi-Version Support**: You can install multiple JDK versions side-by-side. Each version gets its own directory and environment variables, allowing you to easily switch between Java versions for different projects. The script also supports installing all supported JDK versions at once for maximum compatibility.
 
 By adding the variables to `.profile` instead of `.bashrc` we ensure to be more "shell agnostic", so if you run
 a script in another shell like `sh` or launch a graphical program, it should read the environment variables defined there.
@@ -76,13 +76,19 @@ Please select which JDK version you would like to install:
   4) JDK 21 (Oracle)
   5) JDK 23 (OpenJDK)
   6) JDK 24 (Oracle - recommended)
+  7) Install All JDK Versions (8, 16, 17, 21, 23, 24)
 
-Enter your choice (1-6) [default: 6 for JDK 24]:
+Enter your choice (1-7) [default: 6 for JDK 24]:
 ```
 
 **Environment Variable Mode (For automation/scripts):**
 You can choose which version to install by setting the variable `JDK_VERSION` before executing the script, you can
 even do it on the same command! This method is perfect for automated installations and CI/CD pipelines.
+
+**When using environment variables:**
+- **No interactive prompts**: The script runs completely automated
+- **Smart default selection**: Automatically sets the latest (highest numbered) installed JDK version as the default
+- **Install all versions**: Use `JDK_VERSION=ALL` to install all supported JDK versions at once
 
 **Install multiple versions for different projects:**
 
@@ -122,9 +128,15 @@ git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=24 ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
 
+**To install ALL JDK versions at once** (8, 16, 17, 21, 23, 24):
+```bash
+git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
+JDK_VERSION=ALL ./install-jdk-on-steam-deck/scripts/install-jdk.sh
+```
+
 **Which Mode Should You Use?**
-- **Interactive Mode**: Best for most users, especially first-time installations. Provides clear options and guidance.
-- **Environment Variable Mode**: Perfect for automation, scripts, CI/CD pipelines, or when you know exactly which version you need.
+- **Interactive Mode**: Best for most users, especially first-time installations. Provides clear options and guidance. Includes an "Install All" option for convenience.
+- **Environment Variable Mode**: Perfect for automation, scripts, CI/CD pipelines, or when you know exactly which version you need. Automatically sets the latest version as default without prompting.
 
 **Using specific versions in your projects:**
 After installation, you can reference specific versions using:
@@ -138,7 +150,9 @@ After installation, you can reference specific versions using:
 Or simply use `java` which will use the default `JAVA_HOME` (your chosen default version).
 
 **Default Java Version Selection:**
-After installing multiple JDK versions, the script will prompt you to choose which one should be the default:
+After installing multiple JDK versions, the behavior depends on how you run the script:
+
+**Interactive Mode**: The script will prompt you to choose which version should be the default:
 
 ```
 Multiple Java versions detected. Please choose which one should be the default:
@@ -154,6 +168,8 @@ Enter your choice (1-5) [default: 5 for JDK 24]:
 - **Press Enter**: Accept the recommended latest version (JDK 24 in this example)
 - **Choose a number**: Select any specific version as your default
 - **Latest is recommended**: The script automatically identifies and recommends the highest version number
+
+**Environment Variable Mode**: The script automatically sets the latest (highest numbered) installed JDK version as the default without prompting. This ensures automated installations work smoothly without user interaction.
 
 **Re-running with existing versions:**
 If you run the script to install a JDK version that's already installed, the script will:
