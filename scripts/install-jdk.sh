@@ -65,9 +65,26 @@ log_error() {
 }
 
 cleanup() {
-    cleanup_command="rm -rf ${INSTALLATION_DIR}"
-    log_info "Cleaning unsuccesful installation: ${cleanup_command}"
-    $cleanup_command
+    # Only clean up the downloaded files, not the entire JDK directory
+    # This preserves other installed JDK versions
+    if [[ -n "${JDK_FILE_NAME}" && -f "${INSTALLATION_DIR}/${JDK_FILE_NAME}" ]]; then
+        cleanup_command="rm -f ${INSTALLATION_DIR}/${JDK_FILE_NAME}"
+        log_info "Cleaning downloaded file: ${cleanup_command}"
+        $cleanup_command
+    fi
+    
+    if [[ -n "${JDK_CHECKSUM_FILE_NAME}" && -f "${INSTALLATION_DIR}/${JDK_CHECKSUM_FILE_NAME}" ]]; then
+        cleanup_command="rm -f ${INSTALLATION_DIR}/${JDK_CHECKSUM_FILE_NAME}"
+        log_info "Cleaning checksum file: ${cleanup_command}"
+        $cleanup_command
+    fi
+    
+    # If extraction started but failed, clean up the partially extracted directory
+    if [[ -n "${JDK_EXTRACTED_DIR}" && "${JDK_EXTRACTED_DIR}" != "to-be-known-later" && -d "${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}" ]]; then
+        cleanup_command="rm -rf ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}"
+        log_info "Cleaning partially extracted directory: ${cleanup_command}"
+        $cleanup_command
+    fi
 }
 
 # Allows the user to select which version of the jdk to install
