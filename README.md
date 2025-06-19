@@ -262,7 +262,6 @@ Found the following JDK installations:
 Enter your choice (1-6):
 ```
 
-**Manual Uninstall (Alternative):**
 
 **Manual Uninstall (Alternative):**
 
