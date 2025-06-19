@@ -1,0 +1,391 @@
+#!/bin/bash
+
+INSTALLATION_DIR="${HOME}/.local/jdk"
+
+# Logging utils using colors
+
+RED='\033[1;31m'
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}${1}${NC}"
+}
+
+log_warning() {
+    echo -e "${BLUE}${1}${NC}"
+}
+
+log_error() {
+    echo -e "${RED}${1}${NC}"
+}
+
+log_confirm() {
+    echo -e "${YELLOW}${1}${NC}"
+}
+
+# Get list of all installed Java versions
+get_installed_versions() {
+    installed_versions=()
+    version_homes=()
+    jdk_paths=()
+    
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        for jdk_dir in "${INSTALLATION_DIR}"/*/; do
+            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable
+                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+                jdk_path="${jdk_dir%/}"  # Remove trailing slash
+                
+                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                    installed_versions+=("JDK 8")
+                    version_homes+=("JAVA_8_HOME")
+                    jdk_paths+=("$jdk_path")
+                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
+                    installed_versions+=("JDK 16")
+                    version_homes+=("JAVA_16_HOME")
+                    jdk_paths+=("$jdk_path")
+                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
+                    installed_versions+=("JDK 17")
+                    version_homes+=("JAVA_17_HOME")
+                    jdk_paths+=("$jdk_path")
+                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
+                    installed_versions+=("JDK 21")
+                    version_homes+=("JAVA_21_HOME")
+                    jdk_paths+=("$jdk_path")
+                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
+                    installed_versions+=("JDK 23")
+                    version_homes+=("JAVA_23_HOME")
+                    jdk_paths+=("$jdk_path")
+                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
+                    installed_versions+=("JDK 24")
+                    version_homes+=("JAVA_24_HOME")
+                    jdk_paths+=("$jdk_path")
+                fi
+            fi
+        done
+    fi
+}
+
+# Remove JDK-related entries from .profile
+clean_profile_entries() {
+    local versions_to_remove=("$@")
+    
+    if [[ -f ~/.profile ]]; then
+        log_info "Cleaning up .profile entries..."
+        
+        # Create a pattern for the versions to remove
+        local remove_pattern=""
+        for version in "${versions_to_remove[@]}"; do
+            case "$version" in
+                "JDK 8")
+                    remove_pattern="${remove_pattern}JAVA_8_HOME\|"
+                    ;;
+                "JDK 16")
+                    remove_pattern="${remove_pattern}JAVA_16_HOME\|"
+                    ;;
+                "JDK 17")
+                    remove_pattern="${remove_pattern}JAVA_17_HOME\|"
+                    ;;
+                "JDK 21")
+                    remove_pattern="${remove_pattern}JAVA_21_HOME\|"
+                    ;;
+                "JDK 23")
+                    remove_pattern="${remove_pattern}JAVA_23_HOME\|"
+                    ;;
+                "JDK 24")
+                    remove_pattern="${remove_pattern}JAVA_24_HOME\|"
+                    ;;
+            esac
+        done
+        
+        # Remove the trailing \|
+        remove_pattern="${remove_pattern%\\|}"
+        
+        if [[ -n "$remove_pattern" ]]; then
+            # Remove specific version entries and their PATH entries
+            grep -v -E "export ${remove_pattern}|export PATH.*$(echo "$remove_pattern" | sed 's/JAVA_/jdk/g' | sed 's/_HOME//g')" ~/.profile > ~/.profile.tmp
+            mv ~/.profile.tmp ~/.profile
+            
+            # If removing all versions, also clean up JAVA_HOME and section headers
+            if [[ ${#versions_to_remove[@]} -eq ${#installed_versions[@]} ]]; then
+                grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|export JAVA_HOME=|# To change the default Java version" ~/.profile > ~/.profile.tmp
+                mv ~/.profile.tmp ~/.profile
+                
+                # Remove excessive blank lines
+                awk 'BEGIN{blank=0} /^$/{blank++; if(blank<=2) print; next} {blank=0; print}' ~/.profile > ~/.profile.tmp
+                mv ~/.profile.tmp ~/.profile
+            fi
+        fi
+        
+        log_info "Cleaned up .profile entries"
+    fi
+}
+
+# Update .profile to reflect remaining installations
+update_profile_after_removal() {
+    # Re-scan for remaining installations
+    get_installed_versions
+    
+    if [[ ${#installed_versions[@]} -gt 0 ]]; then
+        log_info "Updating .profile with remaining JDK installations..."
+        
+        # Clean existing JDK entries
+        if [[ -f ~/.profile ]]; then
+            grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|export JAVA_.*_HOME|export JAVA_HOME=|export PATH.*jdk.*bin|# To change the default Java version" ~/.profile > ~/.profile.backup.tmp 2>/dev/null || true
+        else
+            touch ~/.profile.backup.tmp
+        fi
+        
+        # Start fresh .profile with preserved content
+        cp ~/.profile.backup.tmp ~/.profile
+        
+        # Add header for JDK section
+        echo "" >> ~/.profile
+        echo "# ========================================" >> ~/.profile
+        echo "# JDK Installations managed by install-jdk-on-steam-deck" >> ~/.profile
+        echo "# ========================================" >> ~/.profile
+        
+        # Add remaining JDK versions
+        for i in "${!installed_versions[@]}"; do
+            version="${installed_versions[i]}"
+            jdk_path="${jdk_paths[i]}"
+            
+            case "$version" in
+                "JDK 8")
+                    echo "" >> ~/.profile
+                    echo "# JDK 8 installation" >> ~/.profile
+                    echo "export JAVA_8_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+                "JDK 16")
+                    echo "" >> ~/.profile
+                    echo "# JDK 16 installation" >> ~/.profile
+                    echo "export JAVA_16_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+                "JDK 17")
+                    echo "" >> ~/.profile
+                    echo "# JDK 17 installation" >> ~/.profile
+                    echo "export JAVA_17_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+                "JDK 21")
+                    echo "" >> ~/.profile
+                    echo "# JDK 21 installation" >> ~/.profile
+                    echo "export JAVA_21_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+                "JDK 23")
+                    echo "" >> ~/.profile
+                    echo "# JDK 23 installation" >> ~/.profile
+                    echo "export JAVA_23_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+                "JDK 24")
+                    echo "" >> ~/.profile
+                    echo "# JDK 24 installation" >> ~/.profile
+                    echo "export JAVA_24_HOME=${jdk_path}" >> ~/.profile
+                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+                    ;;
+            esac
+        done
+        
+        # Add footer
+        echo "" >> ~/.profile
+        echo "# To change the default Java version, update the JAVA_HOME line below or re-run this installer" >> ~/.profile
+        echo "# ========================================" >> ~/.profile
+        
+        # Set the first remaining version as default if JAVA_HOME was removed
+        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1 && [[ ${#installed_versions[@]} -gt 0 ]]; then
+            first_version_home="${version_homes[0]}"
+            echo "export JAVA_HOME=\$${first_version_home}" >> ~/.profile
+            log_info "Set ${installed_versions[0]} as the new default Java version"
+        fi
+        
+        # Clean up temporary file
+        rm -f ~/.profile.backup.tmp
+        
+    else
+        # No JDK installations left, clean up all JDK entries
+        if [[ -f ~/.profile ]]; then
+            grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|export JAVA_.*_HOME|export JAVA_HOME=|export PATH.*jdk.*bin|# To change the default Java version" ~/.profile > ~/.profile.tmp
+            mv ~/.profile.tmp ~/.profile
+            
+            # Remove excessive blank lines
+            awk 'BEGIN{blank=0} /^$/{blank++; if(blank<=2) print; next} {blank=0; print}' ~/.profile > ~/.profile.tmp
+            mv ~/.profile.tmp ~/.profile
+        fi
+        log_info "Removed all JDK entries from .profile"
+    fi
+}
+
+# Show uninstall menu
+show_uninstall_menu() {
+    get_installed_versions
+    
+    if [[ ${#installed_versions[@]} -eq 0 ]]; then
+        log_warning "No JDK installations found in ${INSTALLATION_DIR}"
+        exit 0
+    fi
+    
+    echo ""
+    log_info "=== JDK Uninstaller for Steam Deck ==="
+    echo ""
+    log_info "Found the following JDK installations:"
+    
+    for i in "${!installed_versions[@]}"; do
+        echo "  $((i + 1))) ${installed_versions[i]} (${jdk_paths[i]})"
+    done
+    
+    echo "  $((${#installed_versions[@]} + 1))) Remove ALL JDK installations"
+    echo "  $((${#installed_versions[@]} + 2))) Cancel"
+    echo ""
+}
+
+# Confirm removal
+confirm_removal() {
+    local items_to_remove=("$@")
+    
+    echo ""
+    log_confirm "You are about to remove the following:"
+    for item in "${items_to_remove[@]}"; do
+        log_confirm "  - $item"
+    done
+    echo ""
+    log_confirm "This action cannot be undone!"
+    echo ""
+    
+    while true; do
+        read -p "Are you sure you want to proceed? (yes/no): " confirm
+        case $confirm in
+            [Yy]es|[Yy]|YES)
+                return 0
+                ;;
+            [Nn]o|[Nn]|NO)
+                log_info "Uninstall cancelled."
+                exit 0
+                ;;
+            *)
+                echo "Please answer yes or no."
+                ;;
+        esac
+    done
+}
+
+# Remove specific JDK versions
+remove_jdk_versions() {
+    local versions_to_remove=("$@")
+    local paths_to_remove=()
+    
+    # Get paths for versions to remove
+    for version in "${versions_to_remove[@]}"; do
+        for i in "${!installed_versions[@]}"; do
+            if [[ "${installed_versions[i]}" == "$version" ]]; then
+                paths_to_remove+=("${jdk_paths[i]}")
+                break
+            fi
+        done
+    done
+    
+    # Confirm removal
+    confirm_removal "${versions_to_remove[@]}"
+    
+    # Remove the directories
+    for path in "${paths_to_remove[@]}"; do
+        if [[ -d "$path" ]]; then
+            log_info "Removing $path..."
+            rm -rf "$path" || {
+                log_error "Failed to remove $path"
+                exit 1
+            }
+            log_info "Successfully removed $path"
+        fi
+    done
+    
+    # Update .profile
+    update_profile_after_removal
+    
+    # Check if installation directory is empty and remove it
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        if [[ -z "$(ls -A "${INSTALLATION_DIR}")" ]]; then
+            log_info "Removing empty installation directory: ${INSTALLATION_DIR}"
+            rmdir "${INSTALLATION_DIR}"
+        fi
+    fi
+    
+    log_info "Uninstallation completed successfully!"
+    
+    if [[ ${#versions_to_remove[@]} -lt ${#installed_versions[@]} ]]; then
+        log_warning "Note: You may need to restart your terminal or run 'source ~/.bashrc' for changes to take effect."
+    else
+        log_warning "All JDK installations have been removed. You may need to restart your terminal."
+    fi
+}
+
+# Remove all JDK installations
+remove_all_jdks() {
+    if [[ ! -d "${INSTALLATION_DIR}" ]]; then
+        log_warning "No JDK installation directory found."
+        exit 0
+    fi
+    
+    # Confirm removal
+    confirm_removal "ALL JDK installations and the entire ${INSTALLATION_DIR} directory"
+    
+    # Remove the entire installation directory
+    log_info "Removing all JDK installations from ${INSTALLATION_DIR}..."
+    rm -rf "${INSTALLATION_DIR}" || {
+        log_error "Failed to remove ${INSTALLATION_DIR}"
+        exit 1
+    }
+    
+    log_info "Successfully removed ${INSTALLATION_DIR}"
+    
+    # Clean up .profile completely
+    if [[ -f ~/.profile ]]; then
+        log_info "Cleaning up .profile..."
+        grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|export JAVA_.*_HOME|export JAVA_HOME=|export PATH.*jdk.*bin|# To change the default Java version" ~/.profile > ~/.profile.tmp
+        mv ~/.profile.tmp ~/.profile
+        
+        # Remove excessive blank lines
+        awk 'BEGIN{blank=0} /^$/{blank++; if(blank<=2) print; next} {blank=0; print}' ~/.profile > ~/.profile.tmp
+        mv ~/.profile.tmp ~/.profile
+        
+        log_info "Cleaned up .profile"
+    fi
+    
+    log_info "All JDK installations have been completely removed!"
+    log_warning "You may need to restart your terminal for changes to take effect."
+}
+
+#### MAIN ####
+
+show_uninstall_menu
+
+while true; do
+    read -p "Enter your choice (1-$((${#installed_versions[@]} + 2))): " choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]]; then
+        if [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#installed_versions[@]} ]]; then
+            # Remove specific version
+            selected_version="${installed_versions[$((choice - 1))]}"
+            remove_jdk_versions "$selected_version"
+            break
+        elif [[ "$choice" -eq $((${#installed_versions[@]} + 1)) ]]; then
+            # Remove all versions
+            remove_all_jdks
+            break
+        elif [[ "$choice" -eq $((${#installed_versions[@]} + 2)) ]]; then
+            # Cancel
+            log_info "Uninstall cancelled."
+            exit 0
+        else
+            echo "Invalid choice. Please enter a number between 1 and $((${#installed_versions[@]} + 2))."
+        fi
+    else
+        echo "Invalid input. Please enter a number."
+    fi
+done

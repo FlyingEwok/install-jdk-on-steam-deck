@@ -136,6 +136,43 @@ This means you can re-run the script at any time to change your default Java ver
 How to uninstall it
 ===================
 
+**Interactive Uninstall Script (Recommended):**
+The repository now includes a dedicated uninstall script that provides an interactive menu for safe removal:
+
+```bash
+# Run the interactive uninstall script
+./install-jdk-on-steam-deck/scripts/uninstall-jdk.sh
+```
+
+The uninstall script will:
+1. **Detect all installed JDK versions** automatically
+2. **Present an interactive menu** with options to:
+   - Remove individual JDK versions
+   - Remove all JDK installations at once
+   - Cancel the operation
+3. **Safely clean up environment variables** from your `.profile`
+4. **Update remaining installations** if you only remove some versions
+5. **Require confirmation** before any destructive operations
+
+Example menu:
+```
+=== JDK Uninstaller for Steam Deck ===
+
+Found the following JDK installations:
+  1) JDK 8 (/home/deck/.local/jdk/jdk8u422-b05)
+  2) JDK 17 (/home/deck/.local/jdk/jdk-17.0.1)
+  3) JDK 21 (/home/deck/.local/jdk/jdk-21.0.5)
+  4) JDK 24 (/home/deck/.local/jdk/jdk-24.0.1)
+  5) Remove ALL JDK installations
+  6) Cancel
+
+Enter your choice (1-6):
+```
+
+**Manual Uninstall (Alternative):**
+
+**Manual Uninstall (Alternative):**
+
 **To remove a specific JDK version:**
 ```bash
 # Remove JDK 17 installation (replace with actual directory name)
@@ -182,12 +219,12 @@ The script includes improved error handling that only cleans up files related to
 TO-DO
 =====
 
-* Add an uninstall script or option
+* ~~Add an uninstall script or option~~ ✅ **COMPLETED**
 * ~~Add support for java 8~~ ✅ **COMPLETED**
 * ~~Add support for multiple JDK versions~~ ✅ **COMPLETED**
 * ~~Add interactive default Java version selection~~ ✅ **COMPLETED**
 * ~~Improve error handling to preserve existing installations~~ ✅ **COMPLETED**
-* Add support for switching between installed JDK versions easily
+* ~~Add support for switching between installed JDK versions easily~~ ✅ **COMPLETED**
 * If you want anything added, just let me know by opening an [issue][3]
 
 [1]: https://partner.steamgames.com/doc/steamdeck/faq
