@@ -47,7 +47,12 @@ to the one you need.
 * **JDK 23**: OpenJDK from java.net
 * **JDK 24**: Oracle JDK (latest)
 
-**Version Detection**: The script intelligently detects if a specific JDK version is already installed and skips reinstallation, while allowing you to install other versions side-by-side. If the requested version is already installed, the script proceeds directly to the default version selection menu.
+**Smart Version Detection**: The script intelligently detects which JDK versions are already installed by scanning for Java executables and parsing their version output. It only shows uninstalled versions in the installation menu, making it clear what options are available.
+
+**Intelligent Menu System**: 
+- **No JDKs installed**: Shows all available versions for installation
+- **Some JDKs installed**: Displays which versions are already installed, shows only uninstalled versions for installation, and includes a "Skip to change defaults" option
+- **All JDKs installed**: Automatically skips to default version selection
 
 **Smart Default Selection**: When multiple JDK versions are installed, the script presents an interactive menu to choose your default Java version, automatically recommending the latest (highest numbered) version. You can simply press Enter to accept the recommended default or choose any other installed version.
 
@@ -56,7 +61,7 @@ Usage
 
 The script supports both **interactive mode** and **environment variable mode** for version selection.
 
-**Interactive Mode (Recommended for new users):**
+### **Interactive Mode (Recommended for new users):**
 Simply run the script without specifying a version, and it will present an interactive menu:
 
 ```bash
@@ -76,12 +81,32 @@ Please select which JDK version you would like to install:
   4) JDK 21 (Oracle)
   5) JDK 23 (OpenJDK)
   6) JDK 24 (Oracle - recommended)
-  7) Install All JDK Versions (8, 16, 17, 21, 23, 24)
+  7) Install All Remaining JDK Versions (8, 16, 17, 21, 23, 24)
 
 Enter your choice (1-7) [default: 6 for JDK 24]:
 ```
 
-**Environment Variable Mode (For automation/scripts):**
+**If some JDKs are already installed**, the script will show which ones are installed and only list uninstalled versions:
+```
+=== JDK Installer for Steam Deck ===
+
+Already installed JDK versions: 24 8
+
+Please select which JDK version you would like to install:
+
+  1) JDK 16 (OpenJDK)
+  2) JDK 17 (OpenJDK)
+  3) JDK 21 (Oracle)
+  4) JDK 23 (OpenJDK)
+  5) Install All Remaining JDK Versions (16 17 21 23)
+  6) Skip installation and change default Java version
+
+Enter your choice (1-6) [default: 4 for JDK 23]:
+```
+
+**If all JDKs are already installed**, the script will automatically proceed to default version selection without showing an installation menu.
+
+### **Environment Variable Mode (For automation/scripts):**
 You can choose which version to install by setting the variable `JDK_VERSION` before executing the script, you can
 even do it on the same command! This method is perfect for automated installations and CI/CD pipelines.
 
@@ -89,6 +114,8 @@ even do it on the same command! This method is perfect for automated installatio
 - **No interactive prompts**: The script runs completely automated
 - **Smart default selection**: Automatically sets the latest (highest numbered) installed JDK version as the default
 - **Install all versions**: Use `JDK_VERSION=ALL` to install all supported JDK versions at once
+- **Install remaining versions**: Use `JDK_VERSION=REMAINING` to install only uninstalled versions
+- **Skip to defaults**: Use `JDK_VERSION=SKIP_TO_DEFAULT` to skip installation and just change the default version
 
 **Install multiple versions for different projects:**
 
@@ -134,8 +161,20 @@ git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
 JDK_VERSION=ALL ./install-jdk-on-steam-deck/scripts/install-jdk.sh
 ```
 
+**To install only remaining (uninstalled) JDK versions**:
+```bash
+git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
+JDK_VERSION=REMAINING ./install-jdk-on-steam-deck/scripts/install-jdk.sh
+```
+
+**To skip installation and just change the default Java version** (automatically sets latest as default):
+```bash
+git clone https://github.com/BlackCorsair/install-jdk-on-steam-deck.git && \
+JDK_VERSION=SKIP_TO_DEFAULT ./install-jdk-on-steam-deck/scripts/install-jdk.sh
+```
+
 **Which Mode Should You Use?**
-- **Interactive Mode**: Best for most users, especially first-time installations. Provides clear options and guidance. Includes an "Install All" option for convenience.
+- **Interactive Mode**: Best for most users, especially first-time installations. Provides clear options and guidance. Automatically detects installed versions and shows relevant options.
 - **Environment Variable Mode**: Perfect for automation, scripts, CI/CD pipelines, or when you know exactly which version you need. Automatically sets the latest version as default without prompting.
 
 **Using specific versions in your projects:**
@@ -169,16 +208,23 @@ Enter your choice (1-5) [default: 5 for JDK 24]:
 - **Choose a number**: Select any specific version as your default
 - **Latest is recommended**: The script automatically identifies and recommends the highest version number
 
-**Environment Variable Mode**: The script automatically sets the latest (highest numbered) installed JDK version as the default without prompting. This ensures automated installations work smoothly without user interaction.
+**Environment Variable Mode**: The script automatically sets the latest (highest numbered) installed JDK version as the default without prompting (defaults to latest). This ensures automated installations work smoothly without user interaction.
 
 **Re-running with existing versions:**
-If you run the script to install a JDK version that's already installed, the script will:
+The script intelligently handles scenarios when you already have JDK versions installed:
 
-1. **Detect existing installation**: Skip the download and installation process
-2. **Update environment variables**: Refresh your `.profile` with all currently installed JDKs
-3. **Prompt for default selection**: Allow you to change which version is your default
+1. **Detects existing installations**: Automatically scans for installed JDK versions and displays them
+2. **Shows only relevant options**: Only displays uninstalled versions in the installation menu
+3. **Skip installation option**: Provides a "Skip installation and change default Java version" option when versions are already installed
+4. **Automatic behavior for complete installations**: If all supported versions are installed, automatically proceeds to default version selection
+5. **Updates environment variables**: Refreshes your `.profile` with all currently installed JDKs
+6. **Preserves existing installations**: Never overwrites or damages existing JDK installations
 
-This means you can re-run the script at any time to change your default Java version or refresh your environment setup.
+This means you can re-run the script at any time to:
+- Install additional JDK versions alongside existing ones
+- Change your default Java version
+- Refresh your environment setup
+- Use the "Skip to defaults" option to quickly change defaults without installing anything
 
 How to uninstall it
 ===================
@@ -273,10 +319,11 @@ DEBUG=1 ./scripts/install-jdk.sh
 ```
 
 This will show:
-- Which directories are being checked
-- Java version output from each installation
-- Detection results for each JDK version
-- Any errors encountered during detection
+- Which directories are being checked for JDK installations
+- Java version output from each detected installation
+- Detection results for each JDK version  
+- Any errors encountered during the detection process
+- Installation directory status and contents
 
 **Common Issues:**
 1. **JDKs not detected**: This can happen if:
@@ -292,24 +339,26 @@ This will show:
    - Log out and log back in, OR
    - Run `source ~/.profile` in your current terminal
 
+4. **Script shows wrong installed versions**: The detection relies on executable Java binaries. If a JDK installation is incomplete or corrupted, it may not be detected properly.
+
 **Getting Help:**
-If debug mode shows unexpected behavior, please include the debug output when reporting issues. This helps identify platform-specific detection problems.
+If debug mode shows unexpected behavior, please include the debug output when reporting issues. This helps identify platform-specific detection problems and makes troubleshooting much faster.
 
 **Standalone Debug Script:**
-For more detailed troubleshooting, you can run the standalone debug script:
+For more detailed troubleshooting, you can create a debug script to check the detection system:
 
 ```bash
-./scripts/debug-detection.sh
+# Create a debug script to test detection
+DEBUG=1 bash -c 'source ./scripts/install-jdk.sh; check_installed_versions'
 ```
 
-This script provides comprehensive information about:
+This provides comprehensive information about:
 - Installation directory status and contents
 - Java executable availability and permissions
 - Version detection pattern matching
-- System information
-- Environment variables
+- System information and environment variables
 
-Share the output of this script when reporting detection issues for faster troubleshooting.
+Share the output when reporting detection issues for faster troubleshooting.
 
 TO-DO
 =====
@@ -320,6 +369,9 @@ TO-DO
 * ~~Add interactive default Java version selection~~ ✅ **COMPLETED**
 * ~~Improve error handling to preserve existing installations~~ ✅ **COMPLETED**
 * ~~Add support for switching between installed JDK versions easily~~ ✅ **COMPLETED**
+* ~~Add intelligent version detection to avoid reinstalling existing versions~~ ✅ **COMPLETED**
+* ~~Add smart menu system that only shows relevant installation options~~ ✅ **COMPLETED**
+* ~~Add "Skip to change defaults" option for existing installations~~ ✅ **COMPLETED**
 * If you want anything added, just let me know by opening an [issue][3]
 
 [1]: https://partner.steamgames.com/doc/steamdeck/faq
