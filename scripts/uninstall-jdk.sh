@@ -69,7 +69,80 @@ get_installed_versions() {
     fi
 }
 
-# Remove JDK-related entries from .profile
+# Ask user which Java version they want as default (same logic as install script)
+ask_for_default_java() {
+    # Get list of all installed Java versions
+    get_installed_versions
+    
+    # Sort versions numerically and find the latest
+    IFS=$'\n' sorted_versions=($(printf '%s\n' "${installed_versions[@]}" | sed 's/JDK //' | sort -n | sed 's/^/JDK /'))
+    unset IFS
+    latest_version="${sorted_versions[-1]}"
+    
+    # Find the index of the latest version for default selection
+    latest_index=-1
+    for i in "${!installed_versions[@]}"; do
+        if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+            latest_index=$((i + 1))
+            break
+        fi
+    done
+    
+    # If we have multiple versions, ask user to choose default
+    if [[ ${#installed_versions[@]} -gt 1 ]]; then
+        echo ""
+        log_info "Multiple Java versions remaining. Please choose which one should be the default:"
+        for i in "${!installed_versions[@]}"; do
+            if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+                echo "  $((i + 1))) ${installed_versions[i]} (recommended - latest version)"
+            else
+                echo "  $((i + 1))) ${installed_versions[i]}"
+            fi
+        done
+        echo ""
+        
+        while true; do
+            read -p "Enter your choice (1-${#installed_versions[@]}) [default: ${latest_index} for ${latest_version}]: " choice
+            
+            # If user just presses Enter, use the latest version
+            if [[ -z "$choice" ]]; then
+                choice=$latest_index
+            fi
+            
+            if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#installed_versions[@]} ]]; then
+                selected_version="${installed_versions[$((choice - 1))]}"
+                selected_home="${version_homes[$((choice - 1))]}"
+                
+                # Update JAVA_HOME in profile
+                if grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+                    sed -i "s|^export JAVA_HOME=.*|export JAVA_HOME=\$${selected_home}|" ~/.profile
+                else
+                    echo "export JAVA_HOME=\$${selected_home}" >> ~/.profile
+                fi
+                
+                if [[ "$selected_version" == "$latest_version" ]]; then
+                    log_info "Set ${selected_version} as the default Java version (latest version)"
+                else
+                    log_info "Set ${selected_version} as the default Java version"
+                fi
+                break
+            else
+                echo "Invalid choice. Please enter a number between 1 and ${#installed_versions[@]}, or press Enter for default."
+            fi
+        done
+    elif [[ ${#installed_versions[@]} -eq 1 ]]; then
+        # Only one version, set it as default
+        selected_version="${installed_versions[0]}"
+        selected_home="${version_homes[0]}"
+        
+        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+            echo "export JAVA_HOME=\$${selected_home}" >> ~/.profile
+        else
+            sed -i "s|^export JAVA_HOME=.*|export JAVA_HOME=\$${selected_home}|" ~/.profile
+        fi
+        log_info "Set ${selected_version} as the default Java version (only remaining version)"
+    fi
+}
 clean_profile_entries() {
     local versions_to_remove=("$@")
     
@@ -198,15 +271,13 @@ update_profile_after_removal() {
         echo "# To change the default Java version, update the JAVA_HOME line below or re-run this installer" >> ~/.profile
         echo "# ========================================" >> ~/.profile
         
-        # Set the first remaining version as default if JAVA_HOME was removed
-        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1 && [[ ${#installed_versions[@]} -gt 0 ]]; then
-            first_version_home="${version_homes[0]}"
-            echo "export JAVA_HOME=\$${first_version_home}" >> ~/.profile
-            log_info "Set ${installed_versions[0]} as the new default Java version"
-        fi
-        
         # Clean up temporary file
         rm -f ~/.profile.backup.tmp
+        
+        # Ask user to choose default Java version (same as install script)
+        ask_for_default_java
+        
+        log_info "Updated ~/.profile with remaining JDK installations"
         
     else
         # No JDK installations left, clean up all JDK entries
@@ -318,7 +389,10 @@ remove_jdk_versions() {
     
     log_info "Uninstallation completed successfully!"
     
-    if [[ ${#versions_to_remove[@]} -lt ${#installed_versions[@]} ]]; then
+    # Re-scan to get current state after removal and profile update
+    get_installed_versions
+    
+    if [[ ${#installed_versions[@]} -gt 0 ]]; then
         log_warning "Note: You may need to restart your terminal or run 'source ~/.bashrc' for changes to take effect."
     else
         log_warning "All JDK installations have been removed. You may need to restart your terminal."
