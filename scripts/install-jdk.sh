@@ -19,6 +19,9 @@ log_error() {
     echo -e "${RED}${1}${NC}"
 }
 
+# Installation directory - define early so functions can use it
+INSTALLATION_DIR="${HOME}/.local/jdk"
+
 # Check which JDK versions are already installed
 check_installed_versions() {
     local installed=()
@@ -167,6 +170,13 @@ select_jdk_version_interactive() {
         ((option_counter++))
     fi
     
+    # Add skip to change defaults option (always show if there are installed versions)
+    if [[ ${#installed_versions[@]} -gt 0 ]]; then
+        echo "  ${option_counter}) Skip installation and change default Java version"
+        version_map[${option_counter}]="SKIP_TO_DEFAULT"
+        ((option_counter++))
+    fi
+    
     echo ""
     
     # Determine default option (JDK 24 if available, otherwise the highest uninstalled version)
@@ -217,6 +227,9 @@ select_jdk_version_interactive() {
             if [[ "$selected_version" == "REMAINING" ]]; then
                 JDK_VERSION="REMAINING"
                 log_info "Selected to install all remaining JDK versions (${uninstalled_versions[*]})"
+            elif [[ "$selected_version" == "SKIP_TO_DEFAULT" ]]; then
+                JDK_VERSION="SKIP_TO_DEFAULT"
+                log_info "Selected to skip installation and change default Java version"
             else
                 JDK_VERSION="$selected_version"
                 case $selected_version in
@@ -245,12 +258,12 @@ else
     log_info "Using JDK version ${JDK_VERSION} specified via environment variable"
     # Validate the provided version
     case $JDK_VERSION in
-        8|16|17|21|23|24|ALL)
+        8|16|17|21|23|24|ALL|REMAINING|SKIP_TO_DEFAULT)
             # Valid version, continue
             ;;
         *)
             log_error "Invalid JDK_VERSION specified: ${JDK_VERSION}"
-            log_error "Supported versions are: 8, 16, 17, 21, 23, 24, ALL"
+            log_error "Supported versions are: 8, 16, 17, 21, 23, 24, ALL, REMAINING, SKIP_TO_DEFAULT"
             exit 1
             ;;
     esac
@@ -297,8 +310,6 @@ JDK_CHECKSUM_URL=""
 JDK_EXTRACTED_DIR=""
 JDK_FILE_NAME=""
 JDK_CHECKSUM_FILE_NAME=""
-
-INSTALLATION_DIR="${HOME}/.local/jdk"
 
 CURRENT_DIR=$(pwd)
 
