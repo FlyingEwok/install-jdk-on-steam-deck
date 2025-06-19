@@ -263,6 +263,54 @@ nano ~/.profile
 **Safe Installation Process:**
 The script includes improved error handling that only cleans up files related to the current installation attempt, preserving all your existing JDK installations if something goes wrong.
 
+## Troubleshooting
+
+**Debug Mode:**
+If you encounter issues with JDK detection (e.g., installed JDKs not being recognized), you can run the script in debug mode to get detailed information about what's happening:
+
+```bash
+DEBUG=1 ./scripts/install-jdk.sh
+```
+
+This will show:
+- Which directories are being checked
+- Java version output from each installation
+- Detection results for each JDK version
+- Any errors encountered during detection
+
+**Common Issues:**
+1. **JDKs not detected**: This can happen if:
+   - Java executables are corrupted or incomplete
+   - Directory permissions are incorrect
+   - The Java version string format is unexpected
+   
+   Run with `DEBUG=1` to see exactly what's happening during detection.
+
+2. **Installation fails**: Make sure you have enough disk space and proper write permissions to `~/.local/jdk/`
+
+3. **Environment variables not working**: After installation, make sure to either:
+   - Log out and log back in, OR
+   - Run `source ~/.profile` in your current terminal
+
+**Getting Help:**
+If debug mode shows unexpected behavior, please include the debug output when reporting issues. This helps identify platform-specific detection problems.
+
+**Standalone Debug Script:**
+For more detailed troubleshooting, you can run the standalone debug script:
+
+```bash
+./scripts/debug-detection.sh
+```
+
+This script provides comprehensive information about:
+- Installation directory status and contents
+- Java executable availability and permissions
+- Version detection pattern matching
+- System information
+- Environment variables
+
+Share the output of this script when reporting detection issues for faster troubleshooting.
+
 TO-DO
 =====
 

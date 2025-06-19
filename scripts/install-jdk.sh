@@ -23,28 +23,64 @@ log_error() {
 check_installed_versions() {
     local installed=()
     
+    # Debug: Print installation directory path
+    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Checking installation directory: ${INSTALLATION_DIR}"
+    
     if [[ -d "${INSTALLATION_DIR}" ]]; then
+        # Debug: List contents of installation directory
+        [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Installation directory contents:" && ls -la "${INSTALLATION_DIR}"
+        
         for jdk_dir in "${INSTALLATION_DIR}"/*/; do
-            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
-                # Get the version from the java executable
-                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
-                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
-                    installed+=(8)
-                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
-                    installed+=(16)
-                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
-                    installed+=(17)
-                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
-                    installed+=(21)
-                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
-                    installed+=(23)
-                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
-                    installed+=(24)
+            # Skip if glob doesn't match any directories
+            [[ ! -d "$jdk_dir" ]] && continue
+            
+            [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Checking directory: $jdk_dir"
+            
+            # Check if java executable exists and is executable
+            if [[ -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable with timeout to prevent hanging
+                java_version=$(timeout 10s "${jdk_dir}bin/java" -version 2>&1 | head -1)
+                local java_exit_code=$?
+                
+                [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Java version output from ${jdk_dir}: $java_version"
+                
+                # Skip if java command failed or timed out
+                if [[ $java_exit_code -ne 0 ]]; then
+                    [[ "${DEBUG:-0}" == "1" ]] && log_warning "DEBUG: Java command failed in $jdk_dir (exit code: $java_exit_code)"
+                    continue
                 fi
+                
+                # More robust version detection with multiple patterns
+                if echo "$java_version" | grep -qE "(1\.8\.|openjdk version \"8|java version \"1\.8)"; then
+                    installed+=(8)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 8 in $jdk_dir"
+                elif echo "$java_version" | grep -qE "(openjdk version \"16|java version \"16)"; then
+                    installed+=(16)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 16 in $jdk_dir"
+                elif echo "$java_version" | grep -qE "(openjdk version \"17|java version \"17)"; then
+                    installed+=(17)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 17 in $jdk_dir"
+                elif echo "$java_version" | grep -qE "(openjdk version \"21|java version \"21)"; then
+                    installed+=(21)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 21 in $jdk_dir"
+                elif echo "$java_version" | grep -qE "(openjdk version \"23|java version \"23)"; then
+                    installed+=(23)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 23 in $jdk_dir"
+                elif echo "$java_version" | grep -qE "(openjdk version \"24|java version \"24)"; then
+                    installed+=(24)
+                    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Detected JDK 24 in $jdk_dir"
+                else
+                    [[ "${DEBUG:-0}" == "1" ]] && log_warning "DEBUG: Unrecognized Java version in $jdk_dir: $java_version"
+                fi
+            else
+                [[ "${DEBUG:-0}" == "1" ]] && log_warning "DEBUG: No executable java found in ${jdk_dir}bin/"
             fi
         done
+    else
+        [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Installation directory ${INSTALLATION_DIR} does not exist"
     fi
     
+    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Found installed versions: ${installed[*]}"
     echo "${installed[@]}"
 }
 
@@ -389,28 +425,49 @@ select_jdk_version() {
 
 # Check if the specific JDK version is already installed in our installation directory
 check_if_jdk_version_is_installed() {
+    [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Checking if JDK ${JDK_VERSION} is installed in ${INSTALLATION_DIR}"
+    
     if [[ -d "${INSTALLATION_DIR}" ]]; then
         # Look for any JDK directory that might contain the version we're trying to install
         for jdk_dir in "${INSTALLATION_DIR}"/*/; do
-            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
-                # Get the version from the java executable
-                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+            # Skip if glob doesn't match any directories
+            [[ ! -d "$jdk_dir" ]] && continue
+            
+            [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Checking directory: $jdk_dir"
+            
+            if [[ -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable with timeout
+                java_version=$(timeout 10s "${jdk_dir}bin/java" -version 2>&1 | head -1)
+                local java_exit_code=$?
+                
+                [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Java version output from ${jdk_dir}: $java_version"
+                
+                # Skip if java command failed or timed out
+                if [[ $java_exit_code -ne 0 ]]; then
+                    [[ "${DEBUG:-0}" == "1" ]] && log_warning "DEBUG: Java command failed in $jdk_dir (exit code: $java_exit_code)"
+                    continue
+                fi
+                
                 case $JDK_VERSION in
                     8)
-                        if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                        if echo "$java_version" | grep -qE "(1\.8\.|openjdk version \"8|java version \"1\.8)"; then
                             log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, skipping installation and proceeding to default selection"
                             return 0
                         fi
                         ;;
                     16|17|21|23|24)
-                        if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}\|java version \"${JDK_VERSION}"; then
+                        if echo "$java_version" | grep -qE "(openjdk version \"${JDK_VERSION}|java version \"${JDK_VERSION})"; then
                             log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, skipping installation and proceeding to default selection"
                             return 0
                         fi
                         ;;
                 esac
+            else
+                [[ "${DEBUG:-0}" == "1" ]] && log_warning "DEBUG: No executable java found in ${jdk_dir}bin/"
             fi
         done
+    else
+        [[ "${DEBUG:-0}" == "1" ]] && log_info "DEBUG: Installation directory ${INSTALLATION_DIR} does not exist"
     fi
     return 1
 }
