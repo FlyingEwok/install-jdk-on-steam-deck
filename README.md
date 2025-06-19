@@ -47,7 +47,7 @@ to the one you need.
 * **JDK 23**: OpenJDK from java.net
 * **JDK 24**: Oracle JDK (latest)
 
-**Version Detection**: The script intelligently detects if a specific JDK version is already installed and skips reinstallation, while allowing you to install other versions side-by-side.
+**Version Detection**: The script intelligently detects if a specific JDK version is already installed and skips reinstallation, while allowing you to install other versions side-by-side. If the requested version is already installed, the script proceeds directly to the default version selection menu.
 
 **Smart Default Selection**: When multiple JDK versions are installed, the script presents an interactive menu to choose your default Java version, automatically recommending the latest (highest numbered) version. You can simply press Enter to accept the recommended default or choose any other installed version.
 
@@ -123,6 +123,15 @@ Enter your choice (1-5) [default: 5 for JDK 24]:
 - **Press Enter**: Accept the recommended latest version (JDK 24 in this example)
 - **Choose a number**: Select any specific version as your default
 - **Latest is recommended**: The script automatically identifies and recommends the highest version number
+
+**Re-running with existing versions:**
+If you run the script to install a JDK version that's already installed, the script will:
+
+1. **Detect existing installation**: Skip the download and installation process
+2. **Update environment variables**: Refresh your `.profile` with all currently installed JDKs
+3. **Prompt for default selection**: Allow you to change which version is your default
+
+This means you can re-run the script at any time to change your default Java version or refresh your environment setup.
 
 How to uninstall it
 ===================

@@ -153,7 +153,7 @@ select_jdk_version() {
 }
 
 # Check if the specific JDK version is already installed in our installation directory
-exit_if_jdk_version_is_installed() {
+check_if_jdk_version_is_installed() {
     if [[ -d "${INSTALLATION_DIR}" ]]; then
         # Look for any JDK directory that might contain the version we're trying to install
         for jdk_dir in "${INSTALLATION_DIR}"/*/; do
@@ -163,20 +163,21 @@ exit_if_jdk_version_is_installed() {
                 case $JDK_VERSION in
                     8)
                         if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
-                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
-                            exit 0
+                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, skipping installation and proceeding to default selection"
+                            return 0
                         fi
                         ;;
                     16|17|21|23|24)
                         if echo "$java_version" | grep -q "openjdk version \"${JDK_VERSION}\|java version \"${JDK_VERSION}"; then
-                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, the installer will skip the installation"
-                            exit 0
+                            log_warning "JDK ${JDK_VERSION} is already installed in ${jdk_dir}, skipping installation and proceeding to default selection"
+                            return 0
                         fi
                         ;;
                 esac
             fi
         done
     fi
+    return 1
 }
 
 # download the jdk tar release from oracle and it's checksum
@@ -402,38 +403,43 @@ set_variables_for_the_installation() {
 
 #### MAIN ####
 
-log_info "Checking if JDK ${JDK_VERSION} is already installed"
-exit_if_jdk_version_is_installed
-
 log_info "Validating jdk version selected, if none set jdk-24 will be used"
 select_jdk_version
 
-log_info "Installing jdk-$JDK_VERSION on your local folder '.local/'..."
-
-log_info "Downloading and decompressing jdk17 from oracle page..."
-install_jdk
-log_info "JDK downloaded and extracted into ${INSTALLATION_DIR}"
-
-log_info "Setting environment variables if not already set"
-set_variables_for_the_installation
-
-log_info "Checking that java is properly installed..."
-# shellcheck disable=SC1090
-source ~/.bashrc
-if "${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java" -version
-then
-    log_info "Java is succesfully installed!"
-
-    how_to_use="
-    \tTo start using this java installation, open a new terminal or start a new shell by running 'bash'
-    \n\tJDK ${JDK_VERSION} is now available at: ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java
-    \n\tYou can also use JAVA_${JDK_VERSION}_HOME environment variable to reference this specific version
-    \n\tOriginally you could run 'source ~/.bashrc', but since some time there's an issue with it
-    \tor more info check the issue: https://github.com/BlackCorsair/install-jdk-on-steam-deck/issues/5"
-    log_warning "${how_to_use}"
+log_info "Checking if JDK ${JDK_VERSION} is already installed"
+if check_if_jdk_version_is_installed; then
+    # JDK is already installed, proceed to default selection
+    log_info "Setting environment variables if not already set"
+    set_variables_for_the_installation
 else
-    log_error "Java wasn't installed properly, please check the script :("
-    cleanup
+    # JDK is not installed, proceed with installation
+    log_info "Installing jdk-$JDK_VERSION on your local folder '.local/'..."
+
+    log_info "Downloading and decompressing jdk${JDK_VERSION} from source..."
+    install_jdk
+    log_info "JDK downloaded and extracted into ${INSTALLATION_DIR}"
+
+    log_info "Setting environment variables if not already set"
+    set_variables_for_the_installation
+
+    log_info "Checking that java is properly installed..."
+    # shellcheck disable=SC1090
+    source ~/.bashrc
+    if "${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java" -version
+    then
+        log_info "Java is succesfully installed!"
+
+        how_to_use="
+        \tTo start using this java installation, open a new terminal or start a new shell by running 'bash'
+        \n\tJDK ${JDK_VERSION} is now available at: ${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin/java
+        \n\tYou can also use JAVA_${JDK_VERSION}_HOME environment variable to reference this specific version
+        \n\tOriginally you could run 'source ~/.bashrc', but since some time there's an issue with it
+        \tor more info check the issue: https://github.com/BlackCorsair/install-jdk-on-steam-deck/issues/5"
+        log_warning "${how_to_use}"
+    else
+        log_error "Java wasn't installed properly, please check the script :("
+        cleanup
+    fi
 fi
 
 log_info "Done"
