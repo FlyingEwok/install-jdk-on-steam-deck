@@ -29,8 +29,8 @@ JDK_21_EXTRACTED_DIR=to-be-known-later
 JDK_21_FILE_NAME=jdk-21_linux-x64_bin.tar.gz
 JDK_21_CHECKSUM_FILE_NAME=jdk-21_linux-x64_bin.tar.gz.sha256
 
-JDK_23_URL=https://download.oracle.com/java/23/latest/jdk-23_linux-x64_bin.tar.gz
-JDK_23_CHECKSUM_URL=https://download.oracle.com/java/23/latest/jdk-23_linux-x64_bin.tar.gz.sha256
+JDK_23_URL=https://download.java.net/java/GA/jdk23.0.1/c28985cbf10d4e648e4004050f8781aa/11/GPL/openjdk-23.0.1_linux-x64_bin.tar.gz
+JDK_23_CHECKSUM_URL=https://download.java.net/java/GA/jdk23.0.1/c28985cbf10d4e648e4004050f8781aa/11/GPL/openjdk-23.0.1_linux-x64_bin.tar.gz.sha256
 JDK_23_EXTRACTED_DIR=to-be-known-later
 JDK_23_FILE_NAME=jdk-23_linux-x64_bin.tar.gz
 JDK_23_CHECKSUM_FILE_NAME=jdk-23_linux-x64_bin.tar.gz.sha256
