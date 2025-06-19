@@ -93,6 +93,33 @@ cleanup() {
     fi
 }
 
+# Clean up any existing messy .profile file from previous script runs
+cleanup_profile() {
+    if [[ -f ~/.profile ]]; then
+        log_info "Cleaning up previous JDK entries from .profile..."
+        
+        # Create a clean version by removing all JDK-related content and excessive blank lines
+        grep -v -E "# ={5,}|# JDK.*[Ii]nstallation|# JDK Installations managed by|export JAVA_.*_HOME|export JAVA_HOME=|export PATH.*jdk.*bin|# To change the default Java version" ~/.profile | \
+        awk '
+        BEGIN { blank_count = 0 }
+        /^[[:space:]]*$/ { 
+            blank_count++
+            if (blank_count <= 2) print
+            next 
+        }
+        { 
+            blank_count = 0
+            print 
+        }
+        ' > ~/.profile.clean
+        
+        # Replace the original with the cleaned version
+        mv ~/.profile.clean ~/.profile
+        
+        log_info "Cleaned up .profile file"
+    fi
+}
+
 # Allows the user to select which version of the jdk to install
 select_jdk_version() {
     case $JDK_VERSION in
@@ -324,7 +351,9 @@ set_variables_for_the_installation() {
     # Backup original .profile if it exists and contains non-JDK content
     if [[ -f ~/.profile ]]; then
         # Extract non-JDK lines to preserve user's custom settings
-        grep -v "# JDK.*installation\|export JAVA_.*_HOME\|export JAVA_HOME\|export PATH.*jdk.*bin\|# To change the default Java version" ~/.profile > ~/.profile.backup.tmp 2>/dev/null || true
+        # More comprehensive pattern to catch all JDK-related lines
+        grep -v -E "# ={5,}|# JDK.*installation|# JDK Installations managed by|export JAVA_.*_HOME|export JAVA_HOME|export PATH.*jdk.*bin|# To change the default Java version|^$" ~/.profile | \
+        awk 'BEGIN{blank=0} /^$/{blank++; if(blank<=1) print; next} {blank=0; print}' > ~/.profile.backup.tmp 2>/dev/null || true
     else
         touch ~/.profile.backup.tmp
     fi
@@ -405,6 +434,9 @@ set_variables_for_the_installation() {
 
 log_info "Validating jdk version selected, if none set jdk-24 will be used"
 select_jdk_version
+
+log_info "Cleaning up any previous JDK entries in .profile"
+cleanup_profile
 
 log_info "Checking if JDK ${JDK_VERSION} is already installed"
 if check_if_jdk_version_is_installed; then
