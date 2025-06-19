@@ -23,7 +23,7 @@ Taking this into account, the script located in the `scripts` directory of this 
 * Extract the file into the JDK's own version-specific directory (e.g., `~/.local/jdk/jdk-17.0.1/`, `~/.local/jdk/jdk-21.0.5/`, `~/.local/jdk/jdk-24.0.1/`, etc.)
 * Add environment variables to your `~/.profile` and source it in your bashrc for each installed version:
     * `JAVA_{VERSION}_HOME`: Version-specific home (e.g., `JAVA_17_HOME`, `JAVA_21_HOME`)
-    * `JAVA_HOME`: Points to the first installed version (default)
+    * `JAVA_HOME`: Points to your chosen default version (with smart recommendations)
     * `PATH`: Adds each version's `bin` directory so all executables are available
 
 **Multi-Version Support**: You can install multiple JDK versions side-by-side. Each version gets its own directory and environment variables, allowing you to easily switch between Java versions for different projects.
@@ -47,6 +47,8 @@ to the one you need.
 * **JDK 24**: Oracle JDK (latest)
 
 **Version Detection**: The script intelligently detects if a specific JDK version is already installed and skips reinstallation, while allowing you to install other versions side-by-side.
+
+**Smart Default Selection**: When multiple JDK versions are installed, the script presents an interactive menu to choose your default Java version, automatically recommending the latest (highest numbered) version. You can simply press Enter to accept the recommended default or choose any other installed version.
 
 Usage
 =====
@@ -94,7 +96,24 @@ After installation, you can reference specific versions using:
 - `$JAVA_23_HOME/bin/java` for JDK 23
 - `$JAVA_24_HOME/bin/java` for JDK 24
 
-Or simply use `java` which will use the default `JAVA_HOME` (first installed version).
+Or simply use `java` which will use the default `JAVA_HOME` (your chosen default version).
+
+**Default Java Version Selection:**
+After installing multiple JDK versions, the script will prompt you to choose which one should be the default:
+
+```
+Multiple Java versions detected. Please choose which one should be the default:
+  1) JDK 8
+  2) JDK 17
+  3) JDK 21
+  4) JDK 24 (recommended - latest version)
+
+Enter your choice (1-4) [default: 4 for JDK 24]: 
+```
+
+- **Press Enter**: Accept the recommended latest version (JDK 24 in this example)
+- **Choose a number**: Select any specific version as your default
+- **Latest is recommended**: The script automatically identifies and recommends the highest version number
 
 How to uninstall it
 ===================
@@ -135,7 +154,11 @@ nano ~/.profile
 ```
 
 **Switching default Java version:**
-To change which version is the default `JAVA_HOME`, edit `~/.profile` and modify the `export JAVA_HOME=` line to point to your preferred version's `JAVA_{VERSION}_HOME`.
+- **Easy method**: Re-run the installer script for any installed version - it will prompt you to choose a new default
+- **Manual method**: Edit `~/.profile` and modify the `export JAVA_HOME=` line to point to your preferred version's `JAVA_{VERSION}_HOME`
+
+**Safe Installation Process:**
+The script includes improved error handling that only cleans up files related to the current installation attempt, preserving all your existing JDK installations if something goes wrong.
 
 TO-DO
 =====
@@ -143,6 +166,8 @@ TO-DO
 * Add an uninstall script or option
 * ~~Add support for java 8~~ ✅ **COMPLETED**
 * ~~Add support for multiple JDK versions~~ ✅ **COMPLETED**
+* ~~Add interactive default Java version selection~~ ✅ **COMPLETED**
+* ~~Improve error handling to preserve existing installations~~ ✅ **COMPLETED**
 * Add support for switching between installed JDK versions easily
 * If you want anything added, just let me know by opening an [issue][3]
 

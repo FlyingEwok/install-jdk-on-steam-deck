@@ -203,27 +203,126 @@ install_jdk() {
     cd "${CURRENT_DIR}" || exit 1
 }
 
+# Ask user which Java version they want as default
+ask_for_default_java() {
+    # Get list of all installed Java versions
+    installed_versions=()
+    version_homes=()
+    
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        for jdk_dir in "${INSTALLATION_DIR}"/*/; do
+            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable
+                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                    installed_versions+=("8")
+                    version_homes+=("JAVA_8_HOME")
+                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
+                    installed_versions+=("17")
+                    version_homes+=("JAVA_17_HOME")
+                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
+                    installed_versions+=("21")
+                    version_homes+=("JAVA_21_HOME")
+                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
+                    installed_versions+=("23")
+                    version_homes+=("JAVA_23_HOME")
+                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
+                    installed_versions+=("24")
+                    version_homes+=("JAVA_24_HOME")
+                fi
+            fi
+        done
+    fi
+    
+    # Sort versions numerically and find the latest
+    IFS=$'\n' sorted_versions=($(sort -n <<<"${installed_versions[*]}"))
+    unset IFS
+    latest_version="${sorted_versions[-1]}"
+    
+    # Find the index of the latest version for default selection
+    latest_index=-1
+    for i in "${!installed_versions[@]}"; do
+        if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+            latest_index=$((i + 1))
+            break
+        fi
+    done
+    
+    # If we have multiple versions, ask user to choose default
+    if [[ ${#installed_versions[@]} -gt 1 ]]; then
+        echo ""
+        log_info "Multiple Java versions detected. Please choose which one should be the default:"
+        for i in "${!installed_versions[@]}"; do
+            if [[ "${installed_versions[i]}" == "$latest_version" ]]; then
+                echo "  $((i + 1))) JDK ${installed_versions[i]} (recommended - latest version)"
+            else
+                echo "  $((i + 1))) JDK ${installed_versions[i]}"
+            fi
+        done
+        echo ""
+        
+        while true; do
+            read -p "Enter your choice (1-${#installed_versions[@]}) [default: ${latest_index} for JDK ${latest_version}]: " choice
+            
+            # If user just presses Enter, use the latest version
+            if [[ -z "$choice" ]]; then
+                choice=$latest_index
+            fi
+            
+            if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le ${#installed_versions[@]} ]]; then
+                selected_version="${installed_versions[$((choice - 1))]}"
+                selected_home="${version_homes[$((choice - 1))]}"
+                
+                # Update JAVA_HOME in profile
+                if grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+                    sed -i "s|^export JAVA_HOME=.*|export JAVA_HOME=\$${selected_home}|" ~/.profile
+                else
+                    echo "export JAVA_HOME=\$${selected_home}" >> ~/.profile
+                fi
+                
+                if [[ "$selected_version" == "$latest_version" ]]; then
+                    log_info "Set JDK ${selected_version} as the default Java version (latest version)"
+                else
+                    log_info "Set JDK ${selected_version} as the default Java version"
+                fi
+                break
+            else
+                echo "Invalid choice. Please enter a number between 1 and ${#installed_versions[@]}, or press Enter for default."
+            fi
+        done
+    elif [[ ${#installed_versions[@]} -eq 1 ]]; then
+        # Only one version, set it as default
+        selected_version="${installed_versions[0]}"
+        selected_home="${version_homes[0]}"
+        
+        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
+            echo "export JAVA_HOME=\$${selected_home}" >> ~/.profile
+            log_info "Set JDK ${selected_version} as the default Java version"
+        fi
+    fi
+}
 # This will set JAVA_HOME and will also append the java/bin folder to PATH
 set_variables_for_the_installation() {
     touch ~/.profile
     
     # Check if this specific JDK version is already in the profile
-    if ! grep "JAVA_HOME.*jdk-${JDK_VERSION}" ~/.profile > /dev/null 2>&1; then
+    if ! grep "JAVA_${JDK_VERSION}_HOME" ~/.profile > /dev/null 2>&1; then
         echo "" >> ~/.profile
         echo "# JDK ${JDK_VERSION} installation" >> ~/.profile
         echo "export JAVA_${JDK_VERSION}_HOME=${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}" >> ~/.profile
         echo "export PATH=\$PATH:${INSTALLATION_DIR}/${JDK_EXTRACTED_DIR}/bin" >> ~/.profile
         
-        # Set as default JAVA_HOME if it's not already set
-        if ! grep "export JAVA_HOME=" ~/.profile > /dev/null 2>&1; then
-            echo "export JAVA_HOME=\$JAVA_${JDK_VERSION}_HOME" >> ~/.profile
-        fi
-        
         # Ensure .profile is sourced in .bashrc
         if ! grep "source ~/.profile" ~/.bashrc > /dev/null 2>&1 && ! grep "\[\[ -f ~/.profile \]\] && source ~/.profile" ~/.bashrc > /dev/null 2>&1; then
             echo "[[ -f ~/.profile ]] && source ~/.profile" >> ~/.bashrc
         fi
+        
+        echo "" >> ~/.profile
+        echo "# To change the default Java version, update the JAVA_HOME line or re-run this installer" >> ~/.profile
     fi
+    
+    # Ask user to choose default Java version
+    ask_for_default_java
 }
 
 #### MAIN ####
