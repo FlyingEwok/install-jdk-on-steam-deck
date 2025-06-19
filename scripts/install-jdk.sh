@@ -19,70 +19,183 @@ log_error() {
     echo -e "${RED}${1}${NC}"
 }
 
+# Check which JDK versions are already installed
+check_installed_versions() {
+    local installed=()
+    
+    if [[ -d "${INSTALLATION_DIR}" ]]; then
+        for jdk_dir in "${INSTALLATION_DIR}"/*/; do
+            if [[ -d "$jdk_dir" && -x "${jdk_dir}bin/java" ]]; then
+                # Get the version from the java executable
+                java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
+                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
+                    installed+=(8)
+                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
+                    installed+=(16)
+                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
+                    installed+=(17)
+                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
+                    installed+=(21)
+                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
+                    installed+=(23)
+                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
+                    installed+=(24)
+                fi
+            fi
+        done
+    fi
+    
+    echo "${installed[@]}"
+}
+
 # Interactive JDK version selection if not specified via environment variable
 select_jdk_version_interactive() {
+    # Check which versions are already installed
+    local installed_versions=($(check_installed_versions))
+    local available_versions=(8 16 17 21 23 24)
+    local uninstalled_versions=()
+    
+    # Find versions that are not installed
+    for version in "${available_versions[@]}"; do
+        local is_installed=false
+        for installed in "${installed_versions[@]}"; do
+            if [[ "$version" == "$installed" ]]; then
+                is_installed=true
+                break
+            fi
+        done
+        if [[ "$is_installed" == "false" ]]; then
+            uninstalled_versions+=("$version")
+        fi
+    done
+    
+    # If all versions are installed, skip to default selection
+    if [[ ${#uninstalled_versions[@]} -eq 0 ]]; then
+        log_info "All JDK versions (8, 16, 17, 21, 23, 24) are already installed."
+        log_info "Proceeding to default Java version selection..."
+        JDK_VERSION="SKIP_TO_DEFAULT"
+        return
+    fi
+    
+    # Show available uninstalled versions plus install all option
     echo ""
     log_info "=== JDK Installer for Steam Deck ==="
     echo ""
+    
+    if [[ ${#installed_versions[@]} -gt 0 ]]; then
+        log_info "Already installed JDK versions: ${installed_versions[*]}"
+        echo ""
+    fi
+    
     log_info "Please select which JDK version you would like to install:"
     echo ""
-    echo "  1) JDK 8 (Eclipse Temurin)"
-    echo "  2) JDK 16 (OpenJDK)"
-    echo "  3) JDK 17 (OpenJDK)"
-    echo "  4) JDK 21 (Oracle)"
-    echo "  5) JDK 23 (OpenJDK)"
-    echo "  6) JDK 24 (Oracle - recommended)"
-    echo "  7) Install All JDK Versions (8, 16, 17, 21, 23, 24)"
-    echo ""
     
-    while true; do
-        read -p "Enter your choice (1-7) [default: 6 for JDK 24]: " choice
-        
-        # If user just presses Enter, use JDK 24 (default)
-        if [[ -z "$choice" ]]; then
-            choice=6
-        fi
-        
-        case $choice in
-            1)
-                JDK_VERSION=8
-                log_info "Selected JDK 8 (Eclipse Temurin)"
-                break
+    local option_counter=1
+    local version_map=()
+    
+    # Show uninstalled versions
+    for version in "${uninstalled_versions[@]}"; do
+        case $version in
+            8)
+                echo "  ${option_counter}) JDK 8 (Eclipse Temurin)"
+                version_map[${option_counter}]="8"
                 ;;
-            2)
-                JDK_VERSION=16
-                log_info "Selected JDK 16 (OpenJDK)"
-                break
+            16)
+                echo "  ${option_counter}) JDK 16 (OpenJDK)"
+                version_map[${option_counter}]="16"
                 ;;
-            3)
-                JDK_VERSION=17
-                log_info "Selected JDK 17 (OpenJDK)"
-                break
+            17)
+                echo "  ${option_counter}) JDK 17 (OpenJDK)"
+                version_map[${option_counter}]="17"
                 ;;
-            4)
-                JDK_VERSION=21
-                log_info "Selected JDK 21 (Oracle)"
-                break
+            21)
+                echo "  ${option_counter}) JDK 21 (Oracle)"
+                version_map[${option_counter}]="21"
                 ;;
-            5)
-                JDK_VERSION=23
-                log_info "Selected JDK 23 (OpenJDK)"
-                break
+            23)
+                echo "  ${option_counter}) JDK 23 (OpenJDK)"
+                version_map[${option_counter}]="23"
                 ;;
-            6)
-                JDK_VERSION=24
-                log_info "Selected JDK 24 (Oracle - latest version)"
-                break
-                ;;
-            7)
-                JDK_VERSION="ALL"
-                log_info "Selected to install all JDK versions (8, 16, 17, 21, 23, 24)"
-                break
-                ;;
-            *)
-                echo "Invalid choice. Please enter a number between 1 and 7, or press Enter for default (JDK 24)."
+            24)
+                echo "  ${option_counter}) JDK 24 (Oracle - recommended)"
+                version_map[${option_counter}]="24"
                 ;;
         esac
+        ((option_counter++))
+    done
+    
+    # Add install remaining versions option if there are multiple uninstalled versions
+    if [[ ${#uninstalled_versions[@]} -gt 1 ]]; then
+        echo "  ${option_counter}) Install All Remaining JDK Versions (${uninstalled_versions[*]})"
+        version_map[${option_counter}]="REMAINING"
+        ((option_counter++))
+    fi
+    
+    echo ""
+    
+    # Determine default option (JDK 24 if available, otherwise the highest uninstalled version)
+    local default_option=1
+    local default_version=""
+    for i in "${!version_map[@]}"; do
+        if [[ "${version_map[i]}" == "24" ]]; then
+            default_option=$i
+            default_version="24"
+            break
+        fi
+    done
+    
+    # If JDK 24 not available, use the highest numbered uninstalled version
+    if [[ -z "$default_version" ]]; then
+        local highest_version=0
+        for version in "${uninstalled_versions[@]}"; do
+            if [[ $version -gt $highest_version ]]; then
+                highest_version=$version
+            fi
+        done
+        for i in "${!version_map[@]}"; do
+            if [[ "${version_map[i]}" == "$highest_version" ]]; then
+                default_option=$i
+                default_version="$highest_version"
+                break
+            fi
+        done
+    fi
+    
+    local max_option=$((option_counter - 1))
+    
+    while true; do
+        if [[ -n "$default_version" ]]; then
+            read -p "Enter your choice (1-${max_option}) [default: ${default_option} for JDK ${default_version}]: " choice
+        else
+            read -p "Enter your choice (1-${max_option}): " choice
+        fi
+        
+        # If user just presses Enter, use default
+        if [[ -z "$choice" ]]; then
+            choice=$default_option
+        fi
+        
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le $max_option ]]; then
+            local selected_version="${version_map[$choice]}"
+            
+            if [[ "$selected_version" == "REMAINING" ]]; then
+                JDK_VERSION="REMAINING"
+                log_info "Selected to install all remaining JDK versions (${uninstalled_versions[*]})"
+            else
+                JDK_VERSION="$selected_version"
+                case $selected_version in
+                    8) log_info "Selected JDK 8 (Eclipse Temurin)" ;;
+                    16) log_info "Selected JDK 16 (OpenJDK)" ;;
+                    17) log_info "Selected JDK 17 (OpenJDK)" ;;
+                    21) log_info "Selected JDK 21 (Oracle)" ;;
+                    23) log_info "Selected JDK 23 (OpenJDK)" ;;
+                    24) log_info "Selected JDK 24 (Oracle - latest version)" ;;
+                esac
+            fi
+            break
+        else
+            echo "Invalid choice. Please enter a number between 1 and ${max_option}."
+        fi
     done
 }
 
@@ -258,6 +371,14 @@ select_jdk_version() {
             log_info "You've selected to install all JDK versions"
             # For "ALL" case, we'll handle installation differently in the main section
             ;;
+        REMAINING)
+            log_info "You've selected to install all remaining JDK versions"
+            # For "REMAINING" case, we'll handle installation differently in the main section
+            ;;
+        SKIP_TO_DEFAULT)
+            log_info "All versions are installed, proceeding to default selection"
+            # For "SKIP_TO_DEFAULT" case, we'll skip installation and go to default selection
+            ;;
         *)
             log_error "The version you've selected isn't supported, either set JDK_VERSION=8, JDK_VERSION=16, JDK_VERSION=17, JDK_VERSION=21, JDK_VERSION=23, JDK_VERSION=24, or JDK_VERSION=ALL"
             cleanup
@@ -379,6 +500,56 @@ install_all_jdks() {
     done
     
     log_info "All JDK installations completed"
+}
+
+# Install remaining (uninstalled) JDK versions
+install_remaining_jdks() {
+    # Get the list of uninstalled versions
+    local installed_versions=($(check_installed_versions))
+    local available_versions=(8 16 17 21 23 24)
+    local uninstalled_versions=()
+    
+    # Find versions that are not installed
+    for version in "${available_versions[@]}"; do
+        local is_installed=false
+        for installed in "${installed_versions[@]}"; do
+            if [[ "$version" == "$installed" ]]; then
+                is_installed=true
+                break
+            fi
+        done
+        if [[ "$is_installed" == "false" ]]; then
+            uninstalled_versions+=("$version")
+        fi
+    done
+    
+    log_info "Installing remaining JDK versions: ${uninstalled_versions[*]}"
+    
+    # Install each uninstalled version
+    for version in "${uninstalled_versions[@]}"; do
+        case $version in
+            8)
+                install_single_jdk "8" "${JDK_8_URL}" "${JDK_8_CHECKSUM_URL}" "${JDK_8_FILE_NAME}" "${JDK_8_CHECKSUM_FILE_NAME}"
+                ;;
+            16)
+                install_single_jdk "16" "${JDK_16_URL}" "${JDK_16_CHECKSUM_URL}" "${JDK_16_FILE_NAME}" "${JDK_16_CHECKSUM_FILE_NAME}"
+                ;;
+            17)
+                install_single_jdk "17" "${JDK_17_URL}" "${JDK_17_CHECKSUM_URL}" "${JDK_17_FILE_NAME}" "${JDK_17_CHECKSUM_FILE_NAME}"
+                ;;
+            21)
+                install_single_jdk "21" "${JDK_21_URL}" "${JDK_21_CHECKSUM_URL}" "${JDK_21_FILE_NAME}" "${JDK_21_CHECKSUM_FILE_NAME}"
+                ;;
+            23)
+                install_single_jdk "23" "${JDK_23_URL}" "${JDK_23_CHECKSUM_URL}" "${JDK_23_FILE_NAME}" "${JDK_23_CHECKSUM_FILE_NAME}"
+                ;;
+            24)
+                install_single_jdk "24" "${JDK_24_URL}" "${JDK_24_CHECKSUM_URL}" "${JDK_24_FILE_NAME}" "${JDK_24_CHECKSUM_FILE_NAME}"
+                ;;
+        esac
+    done
+    
+    log_info "Remaining JDK installations completed"
 }
 
 # download the jdk tar release from oracle and it's checksum
@@ -644,6 +815,17 @@ if [[ "$JDK_VERSION" == "ALL" ]]; then
     install_all_jdks
     
     log_info "Setting environment variables for all installed JDKs"
+    set_variables_for_the_installation "$ENV_VAR_MODE"
+elif [[ "$JDK_VERSION" == "REMAINING" ]]; then
+    # Install remaining JDK versions
+    log_info "Installing remaining JDK versions..."
+    install_remaining_jdks
+    
+    log_info "Setting environment variables for all installed JDKs"
+    set_variables_for_the_installation "$ENV_VAR_MODE"
+elif [[ "$JDK_VERSION" == "SKIP_TO_DEFAULT" ]]; then
+    # All versions are installed, skip to default selection
+    log_info "Setting environment variables and selecting default JDK"
     set_variables_for_the_installation "$ENV_VAR_MODE"
 else
     # Single JDK version installation
