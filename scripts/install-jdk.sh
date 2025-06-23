@@ -427,12 +427,15 @@ select_jdk_version_interactive() {
         ((option_counter++))
     fi
     
-    # Add "Skip and change default" option
-    echo "  ${option_counter}) Skip installation and change default Java version"
-    version_map[${option_counter}]="CHANGE_DEFAULT"
+    # Add "Skip and change default" option only if at least one JDK is already installed
+    if [[ ${#installed_versions[@]} -gt 0 ]]; then
+        echo "  ${option_counter}) Skip installation and change default Java version"
+        version_map[${option_counter}]="CHANGE_DEFAULT"
+        ((option_counter++))
+    fi
     
     echo ""
-    local max_option=$option_counter
+    local max_option=$((option_counter - 1))
     local latest_available_version="${AVAILABLE_VERSIONS[-1]}"  # Latest version from all available
     local default_choice=1
     
@@ -446,7 +449,7 @@ select_jdk_version_interactive() {
     
     # If the latest version is already installed, recommend "Install All" or "Change Default"
     if [[ " ${installed_versions[*]} " =~ " ${latest_available_version} " ]]; then
-        # Latest is installed, recommend Install All if available, otherwise Change Default
+        # Latest is installed, recommend Install All if available, otherwise Change Default (if available)
         for i in "${!version_map[@]}"; do
             if [[ "${version_map[$i]}" == "INSTALL_ALL" ]]; then
                 default_choice=$i
@@ -463,8 +466,11 @@ select_jdk_version_interactive() {
     if [[ " ${installed_versions[*]} " =~ " ${latest_available_version} " ]]; then
         if [[ "${version_map[$default_choice]}" == "INSTALL_ALL" ]]; then
             prompt_msg="Enter your choice (1-${max_option}) [default: ${default_choice} to install all remaining versions]: "
-        else
+        elif [[ "${version_map[$default_choice]}" == "CHANGE_DEFAULT" ]]; then
             prompt_msg="Enter your choice (1-${max_option}) [default: ${default_choice} to change default Java version]: "
+        else
+            # Fallback if neither INSTALL_ALL nor CHANGE_DEFAULT are available
+            prompt_msg="Enter your choice (1-${max_option}) [default: ${default_choice}]: "
         fi
     else
         prompt_msg="Enter your choice (1-${max_option}) [default: ${default_choice} for JDK ${latest_available_version} - RECOMMENDED]: "
