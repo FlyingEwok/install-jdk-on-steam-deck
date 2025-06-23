@@ -1,0 +1,16 @@
+# Ignore everything by default
+*
+
+# But don't ignore these specific files
+!install-jdk.sh
+!uninstall-jdk.sh
+!LICENSE
+!README.md
+
+# Don't ignore the scripts directory itself
+!scripts/
+!scripts/install-jdk.sh
+!scripts/uninstall-jdk.sh
+
+# Don't ignore this .gitignore file
+!.gitignore
