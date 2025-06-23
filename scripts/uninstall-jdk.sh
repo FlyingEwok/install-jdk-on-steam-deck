@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# JDK Uninstaller for Steam Deck
+# Dynamically detects and removes any installed JDK version (no hardcoded version limits)
+# Works with all versions that the installer supports: JDK 8, 11-25+
+
 INSTALLATION_DIR="${HOME}/.local/jdk"
 
 # Logging utils using colors
@@ -26,6 +30,10 @@ log_confirm() {
     echo -e "${YELLOW}${1}${NC}"
 }
 
+log_debug() {
+    [[ "${DEBUG:-0}" == "1" ]] && echo -e "${YELLOW}DEBUG: ${1}${NC}"
+}
+
 # Get list of all installed Java versions
 get_installed_versions() {
     installed_versions=()
@@ -39,30 +47,23 @@ get_installed_versions() {
                 java_version=$("${jdk_dir}bin/java" -version 2>&1 | head -1)
                 jdk_path="${jdk_dir%/}"  # Remove trailing slash
                 
-                if echo "$java_version" | grep -q "1\.8\|openjdk version \"8"; then
-                    installed_versions+=("JDK 8")
-                    version_homes+=("JAVA_8_HOME")
+                # Extract version number dynamically using regex
+                if [[ "$java_version" =~ version[[:space:]]+\"?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?(_[0-9]+)?\"? ]]; then
+                    version_number="${BASH_REMATCH[1]}"
+                    
+                    # Handle Java 8 special case (1.8.x format)
+                    if [[ "$java_version" =~ 1\.8 ]]; then
+                        version_number="8"
+                    fi
+                    
+                    # Add to arrays
+                    installed_versions+=("JDK ${version_number}")
+                    version_homes+=("JAVA_${version_number}_HOME")
                     jdk_paths+=("$jdk_path")
-                elif echo "$java_version" | grep -q "openjdk version \"16\|java version \"16"; then
-                    installed_versions+=("JDK 16")
-                    version_homes+=("JAVA_16_HOME")
-                    jdk_paths+=("$jdk_path")
-                elif echo "$java_version" | grep -q "openjdk version \"17\|java version \"17"; then
-                    installed_versions+=("JDK 17")
-                    version_homes+=("JAVA_17_HOME")
-                    jdk_paths+=("$jdk_path")
-                elif echo "$java_version" | grep -q "openjdk version \"21\|java version \"21"; then
-                    installed_versions+=("JDK 21")
-                    version_homes+=("JAVA_21_HOME")
-                    jdk_paths+=("$jdk_path")
-                elif echo "$java_version" | grep -q "openjdk version \"23\|java version \"23"; then
-                    installed_versions+=("JDK 23")
-                    version_homes+=("JAVA_23_HOME")
-                    jdk_paths+=("$jdk_path")
-                elif echo "$java_version" | grep -q "openjdk version \"24\|java version \"24"; then
-                    installed_versions+=("JDK 24")
-                    version_homes+=("JAVA_24_HOME")
-                    jdk_paths+=("$jdk_path")
+                    
+                    log_debug "Detected JDK ${version_number} at $jdk_path"
+                else
+                    log_warning "Could not parse version from: $java_version"
                 fi
             fi
         done
@@ -79,38 +80,15 @@ check_if_default_needs_update() {
         
         # Check if any of the versions being removed is currently the default
         for version in "${versions_to_remove[@]}"; do
-            case "$version" in
-                "JDK 8")
-                    if [[ "$current_java_home" == "JAVA_8_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-                "JDK 16")
-                    if [[ "$current_java_home" == "JAVA_16_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-                "JDK 17")
-                    if [[ "$current_java_home" == "JAVA_17_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-                "JDK 21")
-                    if [[ "$current_java_home" == "JAVA_21_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-                "JDK 23")
-                    if [[ "$current_java_home" == "JAVA_23_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-                "JDK 24")
-                    if [[ "$current_java_home" == "JAVA_24_HOME" ]]; then
-                        return 0  # Default needs update
-                    fi
-                    ;;
-            esac
+            # Extract version number from "JDK X" format
+            if [[ "$version" =~ JDK[[:space:]]+([0-9]+) ]]; then
+                version_number="${BASH_REMATCH[1]}"
+                expected_home="JAVA_${version_number}_HOME"
+                
+                if [[ "$current_java_home" == "$expected_home" ]]; then
+                    return 0  # Default needs update
+                fi
+            fi
         done
     fi
     
@@ -229,44 +207,17 @@ update_profile_after_removal() {
             version="${installed_versions[i]}"
             jdk_path="${jdk_paths[i]}"
             
-            case "$version" in
-                "JDK 8")
-                    echo "" >> ~/.profile
-                    echo "# JDK 8 installation" >> ~/.profile
-                    echo "export JAVA_8_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-                "JDK 16")
-                    echo "" >> ~/.profile
-                    echo "# JDK 16 installation" >> ~/.profile
-                    echo "export JAVA_16_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-                "JDK 17")
-                    echo "" >> ~/.profile
-                    echo "# JDK 17 installation" >> ~/.profile
-                    echo "export JAVA_17_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-                "JDK 21")
-                    echo "" >> ~/.profile
-                    echo "# JDK 21 installation" >> ~/.profile
-                    echo "export JAVA_21_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-                "JDK 23")
-                    echo "" >> ~/.profile
-                    echo "# JDK 23 installation" >> ~/.profile
-                    echo "export JAVA_23_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-                "JDK 24")
-                    echo "" >> ~/.profile
-                    echo "# JDK 24 installation" >> ~/.profile
-                    echo "export JAVA_24_HOME=${jdk_path}" >> ~/.profile
-                    echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
-                    ;;
-            esac
+            # Extract version number dynamically
+            if [[ "$version" =~ JDK[[:space:]]+([0-9]+) ]]; then
+                version_number="${BASH_REMATCH[1]}"
+                
+                echo "" >> ~/.profile
+                echo "# JDK ${version_number} installation" >> ~/.profile
+                echo "export JAVA_${version_number}_HOME=${jdk_path}" >> ~/.profile
+                echo "export PATH=\$PATH:${jdk_path}/bin" >> ~/.profile
+            else
+                log_warning "Could not parse version number from: $version"
+            fi
         done
         
         # Add footer
@@ -355,17 +306,23 @@ confirm_removal() {
     echo ""
     
     while true; do
-        read -p "Are you sure you want to proceed? (yes/no): " confirm
+        read -p "Are you sure you want to proceed? (y/N): " confirm
+        
+        # If user just presses Enter, default to "no"
+        if [[ -z "$confirm" ]]; then
+            confirm="N"
+        fi
+        
         case $confirm in
-            [Yy]es|[Yy]|YES)
+            [Yy]|[Yy]es|YES)
                 return 0
                 ;;
-            [Nn]o|[Nn]|NO)
+            [Nn]|[Nn]o|NO)
                 log_info "Uninstall cancelled."
                 exit 0
                 ;;
             *)
-                echo "Please answer yes or no."
+                echo "Please answer y (yes) or n (no). Default is no."
                 ;;
         esac
     done
